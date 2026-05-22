@@ -28,7 +28,7 @@ def sample_pdf(tmp_path: Path) -> Path:
 def mock_embedder(monkeypatch):
     """Replace SentenceTransformer with a fast deterministic fake."""
     def fake_encode(texts, **kwargs):
-        rng = np.random.RandomState(42)
+        rng = np.random.RandomState(hash(tuple(texts)) & 0xFFFFFFFF)
         return rng.rand(len(texts), 384).astype("float32")
 
     mock = MagicMock()

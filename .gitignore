@@ -5,3 +5,8 @@ dist/
 build/
 .pytest_cache/
 *.pyc
+.DS_Store
+.env
+.idea/
+.vscode/
+*.so
