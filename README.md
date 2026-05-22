@@ -5,30 +5,23 @@ Local semantic search over Guidewire PDF documentation for Claude. Fully offline
 ## Install
 
 ```bash
-# 1. Clone and install
-git clone https://github.com/vwu001/gw-docs-mcp
-cd gw-docs-mcp
-pip install -e .
+# 1. Install from GitHub
+pip install git+https://github.com/vwu001/gw-docs-mcp.git
 
-# 2. Register with Claude Code (add to ~/.claude/settings.json)
-{
-  "mcpServers": {
-    "gw-docs": {
-      "command": "gw-docs-mcp",
-      "args": ["serve"]
-    }
-  }
-}
+# 2. Register with Claude Code
+claude mcp add --scope user gw-docs -- gw-docs-mcp serve
 
 # 3. Point at your PDF directory
-gw-docs-mcp configure --pdf-dir ~/path/to/gw-pdfs
+gw-docs-mcp configure --pdf-dir ~/gwdocs
 
-# 4. Index (one-time, ~1-2 min per 100 pages, first run downloads ~90MB model)
+# 4. Index (one-time; first run downloads ~90MB model)
 gw-docs-mcp index
 
 # 5. Verify
 gw-docs-mcp status
 ```
+
+Start a **new Claude Code session** after step 2 — MCP tools load at session start.
 
 ## Tools Available in Claude
 
