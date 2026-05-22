@@ -46,6 +46,33 @@ def status():
 
 
 @app.command()
+def reset(
+    pdf_dir: Optional[str] = typer.Option(None, "--pdf-dir", help="Override configured PDF directory"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
+):
+    """Wipe the index and re-index from scratch. Use when PDFs are removed or renamed."""
+    import shutil
+    cfg = load_config()
+    chroma_dir = Path(cfg.chroma.persist_dir).expanduser()
+
+    if not yes:
+        typer.confirm(f"This will delete the index at {chroma_dir} and re-index. Continue?", abort=True)
+
+    if chroma_dir.exists():
+        shutil.rmtree(chroma_dir)
+        typer.echo(f"Wiped index at {chroma_dir}")
+
+    target = Path(pdf_dir or cfg.docs.pdf_dir).expanduser()
+    if not target.exists():
+        typer.echo(f"Error: directory not found: {target}", err=True)
+        raise typer.Exit(1)
+
+    typer.echo(f"Indexing PDFs in {target} ...")
+    result = handle_reindex({"pdf_dir": str(target)}, cfg)
+    typer.echo(result)
+
+
+@app.command()
 def serve():
     """Start the MCP server (called by Claude Code automatically)."""
     from gw_docs_mcp.server import main

@@ -1,6 +1,6 @@
 # gw-docs-mcp
 
-Local semantic search over Guidewire PDF documentation for Claude. Fully offline after first model download (~90MB). Three MCP tools: `search_gw_docs`, `list_gw_docs`, `reindex_gw_docs`.
+Local semantic search over Guidewire PDF documentation for Claude. Fully offline after first model download (~90MB). Three MCP tools: `search_gw_docs`, `list_gw_docs`, `reindex_gw_docs`; four CLI commands: `index`, `reset`, `status`, `configure`.
 
 ## Install
 
@@ -67,8 +67,17 @@ All data is local:
 
 ## Re-indexing
 
-When you add new PDFs:
+**Adding new PDFs** — incremental, upserts only new/changed chunks:
 ```bash
 gw-docs-mcp index
 # or from within Claude: reindex_gw_docs()
 ```
+
+**PDF removed or renamed** — must wipe and rebuild the index from scratch:
+```bash
+gw-docs-mcp reset
+# with -y to skip the confirmation prompt
+gw-docs-mcp reset -y
+```
+
+`reset` deletes `~/.gw-docs-mcp/chroma/` then immediately re-indexes all PDFs in the configured directory. Use it any time the set of PDFs changes (removals or renames) — `index` alone will leave stale chunks from deleted files.
