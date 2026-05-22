@@ -57,3 +57,58 @@ def test_make_chunk_id_is_unique():
 def test_chunk_text_raises_if_overlap_gte_chunk_size():
     with pytest.raises(ValueError, match="overlap"):
         chunk_text("some text here", chunk_size=10, overlap=10)
+
+
+import shutil
+import chromadb
+from chromadb.config import Settings
+from gw_docs_mcp.indexer import Indexer
+
+
+def test_index_directory_creates_chunks(tmp_path, sample_pdf, mock_embedder, temp_config):
+    pdf_dir = tmp_path / "pdfs"
+    pdf_dir.mkdir()
+    shutil.copy(sample_pdf, pdf_dir / sample_pdf.name)
+
+    indexer = Indexer(temp_config)
+    results = indexer.index_directory(pdf_dir)
+
+    assert sample_pdf.name in results
+    assert results[sample_pdf.name] > 0
+
+
+def test_index_directory_stores_in_chromadb(tmp_path, sample_pdf, mock_embedder, temp_config):
+    pdf_dir = tmp_path / "pdfs"
+    pdf_dir.mkdir()
+    shutil.copy(sample_pdf, pdf_dir / sample_pdf.name)
+
+    indexer = Indexer(temp_config)
+    indexer.index_directory(pdf_dir)
+
+    client = chromadb.PersistentClient(
+        path=temp_config.chroma.persist_dir,
+        settings=Settings(anonymized_telemetry=False),
+    )
+    collection = client.get_collection(temp_config.chroma.collection)
+    count = collection.count()
+    assert count > 0
+
+
+def test_index_directory_upsert_is_idempotent(tmp_path, sample_pdf, mock_embedder, temp_config):
+    pdf_dir = tmp_path / "pdfs"
+    pdf_dir.mkdir()
+    shutil.copy(sample_pdf, pdf_dir / sample_pdf.name)
+
+    indexer = Indexer(temp_config)
+    results1 = indexer.index_directory(pdf_dir)
+    results2 = indexer.index_directory(pdf_dir)
+
+    assert results1 == results2
+
+
+def test_index_empty_directory(tmp_path, mock_embedder, temp_config):
+    pdf_dir = tmp_path / "empty"
+    pdf_dir.mkdir()
+    indexer = Indexer(temp_config)
+    results = indexer.index_directory(pdf_dir)
+    assert results == {}

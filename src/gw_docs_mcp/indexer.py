@@ -60,5 +60,38 @@ class Indexer:
         return self._model
 
     def index_directory(self, pdf_dir: Path) -> dict[str, int]:
-        """Index all PDFs in pdf_dir. Returns {filename: chunk_count}. Implemented in Task 4."""
-        raise NotImplementedError
+        """Index all PDFs in pdf_dir. Returns {filename: chunk_count}."""
+        import chromadb
+        from chromadb.config import Settings
+
+        client = chromadb.PersistentClient(
+            path=self.cfg.chroma.persist_dir,
+            settings=Settings(anonymized_telemetry=False),
+        )
+        collection = client.get_or_create_collection(self.cfg.chroma.collection)
+        model = self._get_model()
+
+        results: dict[str, int] = {}
+        pdf_files = sorted(pdf_dir.glob("*.pdf"))
+
+        for pdf_path in pdf_files:
+            ids, embeddings, documents, metadatas = [], [], [], []
+            pages = extract_pages(pdf_path)
+            chunk_size = self.cfg.search.chunk_size
+            overlap = self.cfg.search.chunk_overlap
+
+            for page_data in pages:
+                chunks = chunk_text(page_data["text"], chunk_size, overlap)
+                vecs = model.encode(chunks, show_progress_bar=False)
+                for idx, (chunk, vec) in enumerate(zip(chunks, vecs)):
+                    chunk_id = make_chunk_id(page_data["source"], page_data["page"], idx)
+                    ids.append(chunk_id)
+                    embeddings.append(vec.tolist())
+                    documents.append(chunk)
+                    metadatas.append({"source": page_data["source"], "page": page_data["page"]})
+
+            if ids:
+                collection.upsert(ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas)
+            results[pdf_path.name] = len(ids)
+
+        return results
