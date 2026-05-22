@@ -1,7 +1,7 @@
 from __future__ import annotations
 import tomllib
 import tomli_w
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field, asdict, fields as dc_fields
 from pathlib import Path
 
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "gw-docs-mcp" / "config.toml"
@@ -39,16 +39,22 @@ class GwDocsConfig:
     chroma: ChromaConfig = field(default_factory=ChromaConfig)
 
 
+def _from_dict(cls, data: dict):
+    """Construct dataclass from dict, silently ignoring unknown keys."""
+    known = {f.name for f in dc_fields(cls)}
+    return cls(**{k: v for k, v in data.items() if k in known})
+
+
 def load_config(path: Path = DEFAULT_CONFIG_PATH) -> GwDocsConfig:
     if not path.exists():
         return GwDocsConfig()
     with open(path, "rb") as f:
         data = tomllib.load(f)
     return GwDocsConfig(
-        docs=DocsConfig(**data.get("docs", {})),
-        search=SearchConfig(**data.get("search", {})),
-        model=ModelConfig(**data.get("model", {})),
-        chroma=ChromaConfig(**data.get("chroma", {})),
+        docs=_from_dict(DocsConfig, data.get("docs", {})),
+        search=_from_dict(SearchConfig, data.get("search", {})),
+        model=_from_dict(ModelConfig, data.get("model", {})),
+        chroma=_from_dict(ChromaConfig, data.get("chroma", {})),
     )
 
 
