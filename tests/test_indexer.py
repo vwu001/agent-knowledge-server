@@ -52,3 +52,8 @@ def test_make_chunk_id_is_deterministic():
 def test_make_chunk_id_is_unique():
     assert make_chunk_id("a.pdf", 0, 0) != make_chunk_id("a.pdf", 0, 1)
     assert make_chunk_id("a.pdf", 0, 0) != make_chunk_id("b.pdf", 0, 0)
+
+
+def test_chunk_text_raises_if_overlap_gte_chunk_size():
+    with pytest.raises(ValueError, match="overlap"):
+        chunk_text("some text here", chunk_size=10, overlap=10)

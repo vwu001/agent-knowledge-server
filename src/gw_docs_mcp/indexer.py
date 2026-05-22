@@ -10,22 +10,23 @@ from gw_docs_mcp.config import GwDocsConfig
 
 def extract_pages(pdf_path: Path) -> list[dict[str, Any]]:
     """Extract text from each page of a PDF. Returns list of {text, page, source}."""
-    doc = fitz.open(str(pdf_path))
     pages = []
-    for page_num in range(len(doc)):
-        text = doc[page_num].get_text().strip()
-        if text:
-            pages.append({
-                "text": text,
-                "page": page_num,
-                "source": pdf_path.name,
-            })
-    doc.close()
+    with fitz.open(str(pdf_path)) as doc:
+        for page_num in range(len(doc)):
+            text = doc[page_num].get_text().strip()
+            if text:
+                pages.append({
+                    "text": text,
+                    "page": page_num,
+                    "source": pdf_path.name,
+                })
     return pages
 
 
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
     """Split text into overlapping word-based chunks."""
+    if overlap >= chunk_size:
+        raise ValueError(f"overlap ({overlap}) must be less than chunk_size ({chunk_size})")
     words = text.split()
     if len(words) <= chunk_size:
         return [text]
