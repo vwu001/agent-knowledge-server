@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gw-docs-mcp"
+version = "1.0.0"
+description = "Local semantic search over Guidewire PDF documentation for Claude"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.0.0",
+    "pymupdf>=1.24.0",
+    "sentence-transformers>=3.0.0",
+    "chromadb>=0.5.0",
+    "typer>=0.12.0",
+    "tomli-w>=1.0.0",
+]
+
+[project.scripts]
+gw-docs-mcp = "gw_docs_mcp.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gw_docs_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
