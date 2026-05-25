@@ -1,9 +1,9 @@
-# local-knowledge-mcp LLM Ingestion Design
+# agent-knowledge-server LLM Ingestion Design
 Draft 1.0 | 2026-05-25
 
 ## Summary
 
-Add MCP-first LLM-assisted ingestion to `local-knowledge-mcp` so Codex can extract or normalize content from whatever it already has access to, then store that content directly in the local knowledge base without requiring a dedicated parser or connector for each source type.
+Add MCP-first LLM-assisted ingestion to `agent-knowledge-server` so Codex can extract or normalize content from whatever it already has access to, then store that content directly in the agent knowledge base without requiring a dedicated parser or connector for each source type.
 
 This extends the current explicit file/URL model with direct text ingestion and more natural forgetting behavior.
 

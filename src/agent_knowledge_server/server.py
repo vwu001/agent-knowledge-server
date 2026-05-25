@@ -8,14 +8,14 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from local_knowledge_mcp.config import LocalKnowledgeConfig, load_config
-from local_knowledge_mcp.indexer import Indexer
-from local_knowledge_mcp.searcher import Searcher
+from agent_knowledge_server.config import AgentKnowledgeConfig, load_config
+from agent_knowledge_server.indexer import Indexer
+from agent_knowledge_server.searcher import Searcher
 
-_server = Server("local-knowledge")
+_server = Server("agent-knowledge")
 
 
-def handle_add(arguments: dict[str, Any], cfg: LocalKnowledgeConfig) -> str:
+def handle_add(arguments: dict[str, Any], cfg: AgentKnowledgeConfig) -> str:
     indexer = Indexer(cfg)
     file_path = arguments.get("file_path")
     url = arguments.get("url")
@@ -28,7 +28,7 @@ def handle_add(arguments: dict[str, Any], cfg: LocalKnowledgeConfig) -> str:
     return f"Indexed source '{source.title or source.original}' with source_id={source.source_id}"
 
 
-def handle_add_text_source(arguments: dict[str, Any], cfg: LocalKnowledgeConfig) -> str:
+def handle_add_text_source(arguments: dict[str, Any], cfg: AgentKnowledgeConfig) -> str:
     content = arguments.get("content", "").strip()
     source_label = arguments.get("source_label", "").strip()
     if not content or not source_label:
@@ -44,7 +44,7 @@ def handle_add_text_source(arguments: dict[str, Any], cfg: LocalKnowledgeConfig)
     return f"Indexed source '{source.title or source.source_label or source.original}' with source_id={source.source_id}"
 
 
-def handle_list_sources(arguments: dict[str, Any], cfg: LocalKnowledgeConfig) -> str:
+def handle_list_sources(arguments: dict[str, Any], cfg: AgentKnowledgeConfig) -> str:
     sources = Searcher(cfg).list_sources()
     if not sources:
         return "No sources indexed yet."
@@ -56,7 +56,7 @@ def handle_list_sources(arguments: dict[str, Any], cfg: LocalKnowledgeConfig) ->
     return "\n".join(lines)
 
 
-def handle_list_documents(arguments: dict[str, Any], cfg: LocalKnowledgeConfig) -> str:
+def handle_list_documents(arguments: dict[str, Any], cfg: AgentKnowledgeConfig) -> str:
     documents = Searcher(cfg).list_documents()
     if not documents:
         return "No documents indexed yet."
@@ -67,7 +67,7 @@ def handle_list_documents(arguments: dict[str, Any], cfg: LocalKnowledgeConfig) 
     return "\n".join(lines)
 
 
-def handle_search(arguments: dict[str, Any], cfg: LocalKnowledgeConfig) -> str:
+def handle_search(arguments: dict[str, Any], cfg: AgentKnowledgeConfig) -> str:
     query = arguments["query"]
     top_k = arguments.get("top_k", cfg.search.top_k)
     results = Searcher(cfg).search(query, top_k=top_k)
@@ -82,13 +82,13 @@ def handle_search(arguments: dict[str, Any], cfg: LocalKnowledgeConfig) -> str:
     return "\n".join(lines).strip()
 
 
-def handle_refresh(arguments: dict[str, Any], cfg: LocalKnowledgeConfig) -> str:
+def handle_refresh(arguments: dict[str, Any], cfg: AgentKnowledgeConfig) -> str:
     source_id = arguments["source_id"]
     source = Indexer(cfg).refresh_source(source_id)
     return f"Refreshed source_id={source.source_id}"
 
 
-def handle_forget(arguments: dict[str, Any], cfg: LocalKnowledgeConfig) -> str:
+def handle_forget(arguments: dict[str, Any], cfg: AgentKnowledgeConfig) -> str:
     searcher = Searcher(cfg)
     source_id = arguments.get("source_id")
     if source_id:

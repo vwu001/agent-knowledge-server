@@ -1,4 +1,4 @@
-from local_knowledge_mcp.server import (
+from agent_knowledge_server.server import (
     handle_add,
     handle_add_text_source,
     handle_forget,

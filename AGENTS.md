@@ -2,7 +2,7 @@
 
 ## Project Purpose
 
-This repository is evolving from `gw-docs-mcp` into `local-knowledge-mcp`, a local MCP knowledge server for explicitly curated sources.
+This repository is evolving from `gw-docs-mcp` into `agent-knowledge-server`, an agent knowledge server for explicitly curated sources.
 
 A source is exactly one:
 
@@ -13,7 +13,7 @@ The server indexes only explicitly added sources and exposes add, list, search, 
 
 ## Working Rules
 
-- Preserve the approved design in `docs/superpowers/specs/2026-05-25-local-knowledge-mcp-design.md`.
+- Preserve the approved design in `docs/superpowers/specs/2026-05-25-agent-knowledge-server-design.md`.
 - Treat this as a hard rename. Do not keep GW-branded aliases unless the user explicitly asks for them.
 - Do not add folder indexing or URL crawling.
 - Local files are referenced by original path and are not copied into app storage.

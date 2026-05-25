@@ -6,8 +6,8 @@ import chromadb
 from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 
-from local_knowledge_mcp.config import LocalKnowledgeConfig
-from local_knowledge_mcp.registry import SourceRecord, SourceRegistry
+from agent_knowledge_server.config import AgentKnowledgeConfig
+from agent_knowledge_server.registry import SourceRecord, SourceRegistry
 
 
 @dataclass
@@ -21,7 +21,7 @@ class SearchResult:
 
 
 class Searcher:
-    def __init__(self, cfg: LocalKnowledgeConfig) -> None:
+    def __init__(self, cfg: AgentKnowledgeConfig) -> None:
         self.cfg = cfg
         self.registry = SourceRegistry(cfg)
         self._model: SentenceTransformer | None = None

@@ -1,9 +1,9 @@
-# local-knowledge-mcp Design Spec
+# agent-knowledge-server Design Spec
 Draft 1.0 | 2026-05-25
 
 ## Summary
 
-`local-knowledge-mcp` is a local MCP knowledge server for explicitly curated sources. A source is exactly one local file path or one URL. The system indexes only what the user deliberately adds, then provides semantic search, source listing, source refresh, and source forgetting over a local knowledge base.
+`agent-knowledge-server` is a agent knowledge server for explicitly curated sources. A source is exactly one local file path or one URL. The system indexes only what the user deliberately adds, then provides semantic search, source listing, source refresh, and source forgetting over a agent knowledge base.
 
 This is a hard reset from `gw-docs-mcp`, not a compatibility-preserving rename. The new product is generic by default and designed to grow from PDF-only ingestion into a broader personal wiki-style retrieval system for files and web pages.
 
@@ -11,7 +11,7 @@ This is a hard reset from `gw-docs-mcp`, not a compatibility-preserving rename. 
 
 ## 1. Goals
 
-- Replace Guidewire-specific branding and contracts with a generic local knowledge product
+- Replace Guidewire-specific branding and contracts with a generic agent knowledge product
 - Support explicit single-source ingestion for both local files and URLs
 - Keep indexing intentional and low-noise by disallowing folder ingestion and auto-crawling
 - Preserve local-first operation with no required cloud services after dependency installation
@@ -80,7 +80,7 @@ The system should support these core actions as first-class CLI commands and MCP
 The mental model is:
 
 1. Add a trusted source.
-2. The system indexes it into the local knowledge base.
+2. The system indexes it into the agent knowledge base.
 3. Search and inspect what is in the knowledge base.
 4. Refresh or forget sources deliberately.
 
@@ -94,20 +94,20 @@ This is a hard rename. The new surface should be generic only.
 
 Recommended commands:
 
-- `local-knowledge-mcp add --file /path/to/doc.pdf`
-- `local-knowledge-mcp add --url https://example.com/page`
-- `local-knowledge-mcp list-sources`
-- `local-knowledge-mcp list-documents`
-- `local-knowledge-mcp search "query text"`
-- `local-knowledge-mcp refresh --source-id <id>`
-- `local-knowledge-mcp forget --source-id <id>`
-- `local-knowledge-mcp status`
-- `local-knowledge-mcp serve`
+- `agent-knowledge-server add --file /path/to/doc.pdf`
+- `agent-knowledge-server add --url https://example.com/page`
+- `agent-knowledge-server list-sources`
+- `agent-knowledge-server list-documents`
+- `agent-knowledge-server search "query text"`
+- `agent-knowledge-server refresh --source-id <id>`
+- `agent-knowledge-server forget --source-id <id>`
+- `agent-knowledge-server status`
+- `agent-knowledge-server serve`
 
 Possible optional variants:
 
-- `local-knowledge-mcp add /path/to/file`
-- `local-knowledge-mcp add https://example.com/page`
+- `agent-knowledge-server add /path/to/file`
+- `agent-knowledge-server add https://example.com/page`
 
 The explicit `--file` and `--url` flags are safer and easier to validate in early versions, so they are the recommended starting contract.
 
@@ -148,7 +148,7 @@ Suggested tool behavior:
 
 Store configuration at:
 
-- `~/.config/local-knowledge-mcp/config.toml`
+- `~/.config/agent-knowledge-server/config.toml`
 
 This file should contain user settings such as:
 
@@ -160,12 +160,12 @@ This file should contain user settings such as:
 
 Store app-owned data at:
 
-- `~/.local/share/local-knowledge-mcp/`
+- `~/.local/share/agent-knowledge-server/`
 
 Suggested layout:
 
 ```text
-~/.local/share/local-knowledge-mcp/
+~/.local/share/agent-knowledge-server/
   sources/
     registry.json
     <source-id>/
@@ -330,9 +330,9 @@ Out of scope for the first implementation, but enabled by this design:
 
 This project should perform a hard reset rename:
 
-- package name changes from `gw-docs-mcp` to `local-knowledge-mcp`
+- package name changes from `gw-docs-mcp` to `agent-knowledge-server`
 - Python module path changes away from `gw_docs_mcp`
-- CLI binary changes to `local-knowledge-mcp`
+- CLI binary changes to `agent-knowledge-server`
 - config path changes away from `~/.config/gw-docs-mcp/`
 - storage paths change away from `~/.gw-docs-mcp/`
 - MCP server name and tool names change to generic names
@@ -379,7 +379,7 @@ Integration tests should continue to allow a real embedding-model path, but the 
 
 The smallest correct first implementation slice is:
 
-1. hard rename to `local-knowledge-mcp`
+1. hard rename to `agent-knowledge-server`
 2. introduce a persistent source registry
 3. support explicit file and URL sources
 4. keep PDF support working
@@ -398,7 +398,7 @@ DOCX support can be included only if it fits cleanly after these steps without d
 - The current Chroma metadata model is too thin for source lifecycle management and must be expanded.
 - The current indexer only scans `*.pdf` in a directory and should be replaced by single-source ingestion entry points.
 - The current CLI `configure` command centered on one PDF directory should be removed or repurposed because explicit source management replaces directory-based indexing.
-- The current storage split should be simplified so app-owned mutable data lives together under `~/.local/share/local-knowledge-mcp/`.
+- The current storage split should be simplified so app-owned mutable data lives together under `~/.local/share/agent-knowledge-server/`.
 
 ---
 
@@ -406,7 +406,7 @@ DOCX support can be included only if it fits cleanly after these steps without d
 
 Approved decisions captured in this spec:
 
-- hard reset rename to `local-knowledge-mcp`
+- hard reset rename to `agent-knowledge-server`
 - no GW compatibility layer
 - explicit single-source ingestion only
 - no folder indexing

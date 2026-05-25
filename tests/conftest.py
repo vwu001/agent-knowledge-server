@@ -34,7 +34,7 @@ def sample_markdown(tmp_path: Path) -> Path:
 @pytest.fixture
 def sample_text(tmp_path: Path) -> Path:
     txt = tmp_path / "plain.txt"
-    txt.write_text("This is a plain text document about local knowledge indexing.")
+    txt.write_text("This is a plain text document about agent knowledge indexing.")
     return txt
 
 
@@ -57,17 +57,17 @@ def mock_embedder(monkeypatch):
     mock = MagicMock()
     mock.encode.side_effect = fake_encode
 
-    monkeypatch.setattr("local_knowledge_mcp.indexer.SentenceTransformer", lambda name, **kw: mock)
-    monkeypatch.setattr("local_knowledge_mcp.searcher.SentenceTransformer", lambda name, **kw: mock)
+    monkeypatch.setattr("agent_knowledge_server.indexer.SentenceTransformer", lambda name, **kw: mock)
+    monkeypatch.setattr("agent_knowledge_server.searcher.SentenceTransformer", lambda name, **kw: mock)
     return mock
 
 
 @pytest.fixture
 def temp_config(tmp_path: Path):
-    from local_knowledge_mcp.config import AppPaths, LocalKnowledgeConfig, ModelConfig, SearchConfig
+    from agent_knowledge_server.config import AppPaths, AgentKnowledgeConfig, ModelConfig, SearchConfig
 
     data_dir = tmp_path / "data"
-    return LocalKnowledgeConfig(
+    return AgentKnowledgeConfig(
         paths=AppPaths(
             config_path=tmp_path / "config.toml",
             data_dir=data_dir,

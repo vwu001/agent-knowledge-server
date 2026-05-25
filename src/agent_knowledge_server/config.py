@@ -6,7 +6,7 @@ import tomllib
 
 import tomli_w
 
-DEFAULT_CONFIG_PATH = Path.home() / ".config" / "local-knowledge-mcp" / "config.toml"
+DEFAULT_CONFIG_PATH = Path.home() / ".config" / "agent-knowledge-server" / "config.toml"
 
 
 @dataclass
@@ -33,14 +33,14 @@ class ModelConfig:
 
 
 @dataclass
-class LocalKnowledgeConfig:
+class AgentKnowledgeConfig:
     paths: AppPaths
     search: SearchConfig = field(default_factory=SearchConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
 
 
 def build_default_paths(config_path: Path = DEFAULT_CONFIG_PATH) -> AppPaths:
-    data_dir = Path.home() / ".local" / "share" / "local-knowledge-mcp"
+    data_dir = Path.home() / ".local" / "share" / "agent-knowledge-server"
     return AppPaths(
         config_path=config_path,
         data_dir=data_dir,
@@ -51,7 +51,7 @@ def build_default_paths(config_path: Path = DEFAULT_CONFIG_PATH) -> AppPaths:
     )
 
 
-def _config_to_dict(cfg: LocalKnowledgeConfig) -> dict:
+def _config_to_dict(cfg: AgentKnowledgeConfig) -> dict:
     return {
         "paths": {
             "config_path": str(cfg.paths.config_path),
@@ -66,9 +66,9 @@ def _config_to_dict(cfg: LocalKnowledgeConfig) -> dict:
     }
 
 
-def load_config(path: Path = DEFAULT_CONFIG_PATH) -> LocalKnowledgeConfig:
+def load_config(path: Path = DEFAULT_CONFIG_PATH) -> AgentKnowledgeConfig:
     defaults = build_default_paths(path)
-    cfg = LocalKnowledgeConfig(
+    cfg = AgentKnowledgeConfig(
         paths=defaults,
         model=ModelConfig(cache_dir=str(defaults.models_dir)),
     )
@@ -103,7 +103,7 @@ def load_config(path: Path = DEFAULT_CONFIG_PATH) -> LocalKnowledgeConfig:
     return cfg
 
 
-def save_config(cfg: LocalKnowledgeConfig, path: Path = DEFAULT_CONFIG_PATH) -> None:
+def save_config(cfg: AgentKnowledgeConfig, path: Path = DEFAULT_CONFIG_PATH) -> None:
     cfg.paths.config_path = path
     path.parent.mkdir(parents=True, exist_ok=True)
     cfg.paths.data_dir.mkdir(parents=True, exist_ok=True)

@@ -6,7 +6,7 @@ from hashlib import sha1
 import json
 from pathlib import Path
 
-from local_knowledge_mcp.config import LocalKnowledgeConfig
+from agent_knowledge_server.config import AgentKnowledgeConfig
 
 
 def _utc_now() -> str:
@@ -39,7 +39,7 @@ class SourceRecord:
 
 
 class SourceRegistry:
-    def __init__(self, cfg: LocalKnowledgeConfig) -> None:
+    def __init__(self, cfg: AgentKnowledgeConfig) -> None:
         self.cfg = cfg
         self.cfg.paths.sources_dir.mkdir(parents=True, exist_ok=True)
         self.cfg.paths.registry_path.parent.mkdir(parents=True, exist_ok=True)

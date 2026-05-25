@@ -5,18 +5,18 @@ import shutil
 import subprocess
 
 
-SKILL_NAME = "local-knowledge-mcp"
+SKILL_NAME = "agent-knowledge-server"
 
 
 def build_skill_text() -> str:
     return """---
-name: local-knowledge-mcp
-description: Use when a user wants to save useful content to local knowledge, search saved knowledge, or forget incorrect saved knowledge
+name: agent-knowledge-server
+description: Use when a user wants to save useful content to agent knowledge, search saved knowledge, or forget incorrect saved knowledge
 ---
 
-# local-knowledge-mcp
+# agent-knowledge-server
 
-Use this skill when the user wants to interact with the local knowledge MCP.
+Use this skill when the user wants to interact with the agent knowledge MCP.
 
 ## Save Knowledge
 
@@ -65,10 +65,10 @@ def detect_targets(codex: bool, claude: bool) -> list[str]:
 
 def register_claude_mcp() -> tuple[bool, str]:
     if shutil.which("claude") is None:
-        return False, "Claude CLI not found. Install it, then run: claude mcp add --scope user local-knowledge -- local-knowledge-mcp serve"
+        return False, "Claude CLI not found. Install it, then run: claude mcp add --scope user agent-knowledge -- agent-knowledge-server serve"
     try:
         proc = subprocess.run(
-            ["claude", "mcp", "add", "--scope", "user", "local-knowledge", "--", "local-knowledge-mcp", "serve"],
+            ["claude", "mcp", "add", "--scope", "user", "agent-knowledge", "--", "agent-knowledge-server", "serve"],
             check=False,
             capture_output=True,
             text=True,
@@ -82,7 +82,7 @@ def register_claude_mcp() -> tuple[bool, str]:
 
 
 def codex_mcp_guidance() -> str:
-    return "Codex MCP registration may require local environment-specific setup. Ensure the local-knowledge MCP server is registered in your Codex environment and restart the session."
+    return "Codex MCP registration may require local environment-specific setup. Ensure the agent-knowledge MCP server is registered in your Codex environment and restart the session."
 
 
 def install_everything(

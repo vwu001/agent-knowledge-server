@@ -1,5 +1,5 @@
-from local_knowledge_mcp.indexer import Indexer
-from local_knowledge_mcp.searcher import Searcher, SearchResult
+from agent_knowledge_server.indexer import Indexer
+from agent_knowledge_server.searcher import Searcher, SearchResult
 
 
 def test_search_returns_results(sample_pdf, mock_embedder, temp_config):

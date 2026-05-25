@@ -1,4 +1,4 @@
-from local_knowledge_mcp.config import load_config, save_config
+from agent_knowledge_server.config import load_config, save_config
 
 
 def test_defaults_when_no_file(tmp_path):
@@ -8,7 +8,7 @@ def test_defaults_when_no_file(tmp_path):
     assert cfg.search.chunk_overlap == 50
     assert cfg.model.name == "all-MiniLM-L6-v2"
     assert cfg.paths.config_path == tmp_path / "nonexistent.toml"
-    assert "local-knowledge-mcp" in str(cfg.paths.data_dir)
+    assert "agent-knowledge-server" in str(cfg.paths.data_dir)
 
 
 def test_round_trip_preserves_overrides(tmp_path):

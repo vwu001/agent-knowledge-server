@@ -1,4 +1,4 @@
-from local_knowledge_mcp.registry import SourceRegistry
+from agent_knowledge_server.registry import SourceRegistry
 
 
 def test_upsert_file_source_persists_record(sample_pdf, temp_config):

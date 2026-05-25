@@ -1,9 +1,9 @@
-# local-knowledge-mcp Installer Skill Design
+# agent-knowledge-server Installer Skill Design
 Draft 1.0 | 2026-05-25
 
 ## Summary
 
-Add a global installer flow for `local-knowledge-mcp` that can install both:
+Add a global installer flow for `agent-knowledge-server` that can install both:
 
 - the MCP server registration
 - a global assistant skill for Codex and Claude
@@ -21,11 +21,11 @@ The default install path should set up both together, while also supporting spli
 
 Recommended CLI:
 
-- `local-knowledge-mcp install`
-- `local-knowledge-mcp install --mcp-only`
-- `local-knowledge-mcp install --skill-only`
-- `local-knowledge-mcp install --codex`
-- `local-knowledge-mcp install --claude`
+- `agent-knowledge-server install`
+- `agent-knowledge-server install --mcp-only`
+- `agent-knowledge-server install --skill-only`
+- `agent-knowledge-server install --codex`
+- `agent-knowledge-server install --claude`
 
 Default behavior:
 

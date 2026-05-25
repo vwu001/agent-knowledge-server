@@ -1,28 +1,28 @@
-# local-knowledge-mcp
+# agent-knowledge-server
 
-Local MCP knowledge server for explicitly curated sources. Add one file path or one URL at a time, index it locally, then search, list, refresh, or forget that source.
+Curated agent knowledge server for coding agents. Add one file path or one URL at a time, or let the assistant save normalized text directly, then search, list, refresh, or forget that knowledge.
 
 ## Install
 
 ```bash
-pip install git+https://github.com/vwu001/local-knowledge-mcp.git
-local-knowledge-mcp install
+pip install git+https://github.com/vwu001/agent-knowledge-server.git
+agent-knowledge-server install
 ```
 
-`local-knowledge-mcp install` installs the global assistant skill and attempts MCP registration for supported targets. Start a new assistant session after installation so the MCP tools and skill are available.
+`agent-knowledge-server install` installs the global assistant skill and attempts MCP registration for supported targets. Start a new assistant session after installation so the MCP tools and skill are available.
 
 ## Core Actions
 
 ```bash
-local-knowledge-mcp add --file ~/docs/guide.pdf
-local-knowledge-mcp add --url https://example.com/page
-local-knowledge-mcp add-text --source-label "Confluence Pricing Guide" --content "Normalized page content"
-local-knowledge-mcp list-sources
-local-knowledge-mcp list-documents
-local-knowledge-mcp search "database queries"
-local-knowledge-mcp refresh --source-id file-123abc
-local-knowledge-mcp forget --source-id url-456def
-local-knowledge-mcp forget --target "pricing guide"
+agent-knowledge-server add --file ~/docs/guide.pdf
+agent-knowledge-server add --url https://example.com/page
+agent-knowledge-server add-text --source-label "Confluence Pricing Guide" --content "Normalized page content"
+agent-knowledge-server list-sources
+agent-knowledge-server list-documents
+agent-knowledge-server search "database queries"
+agent-knowledge-server refresh --source-id file-123abc
+agent-knowledge-server forget --source-id url-456def
+agent-knowledge-server forget --target "pricing guide"
 ```
 
 ## MCP Tools
@@ -48,7 +48,7 @@ Folder indexing and crawling are intentionally out of scope.
 
 ## LLM-Assisted Ingestion
 
-If Codex or Claude can already read the content, they can save it directly into local knowledge without a dedicated parser or connector. The intended pattern is:
+If Codex or Claude can already read the content, they can save it directly into agent knowledge without a dedicated parser or connector. The intended pattern is:
 
 - extract or normalize the useful content
 - call `add_text_source` with `content` and `source_label`
@@ -59,16 +59,16 @@ This is useful for browser-visible pages, pasted content, repo notes, Confluence
 ## Installer Modes
 
 ```bash
-local-knowledge-mcp install
-local-knowledge-mcp install --mcp-only
-local-knowledge-mcp install --skill-only
-local-knowledge-mcp install --codex
-local-knowledge-mcp install --claude
+agent-knowledge-server install
+agent-knowledge-server install --mcp-only
+agent-knowledge-server install --skill-only
+agent-knowledge-server install --codex
+agent-knowledge-server install --claude
 ```
 
 ## Storage
 
-- `~/.config/local-knowledge-mcp/config.toml`
-- `~/.local/share/local-knowledge-mcp/sources/`
-- `~/.local/share/local-knowledge-mcp/chroma/`
-- `~/.local/share/local-knowledge-mcp/models/`
+- `~/.config/agent-knowledge-server/config.toml`
+- `~/.local/share/agent-knowledge-server/sources/`
+- `~/.local/share/agent-knowledge-server/chroma/`
+- `~/.local/share/agent-knowledge-server/models/`

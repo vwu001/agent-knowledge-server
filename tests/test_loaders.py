@@ -1,7 +1,7 @@
 from io import BytesIO
 from unittest.mock import MagicMock
 
-from local_knowledge_mcp.loaders import load_file_documents, load_url_documents
+from agent_knowledge_server.loaders import load_file_documents, load_url_documents
 
 
 def test_load_file_documents_supports_pdf(sample_pdf):

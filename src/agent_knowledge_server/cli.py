@@ -4,11 +4,11 @@ from pathlib import Path
 
 import typer
 
-from local_knowledge_mcp.config import load_config
-from local_knowledge_mcp.installer import install_everything
-from local_knowledge_mcp.indexer import Indexer
-from local_knowledge_mcp.searcher import Searcher
-from local_knowledge_mcp.server import (
+from agent_knowledge_server.config import load_config
+from agent_knowledge_server.installer import install_everything
+from agent_knowledge_server.indexer import Indexer
+from agent_knowledge_server.searcher import Searcher
+from agent_knowledge_server.server import (
     handle_add,
     handle_forget,
     handle_list_documents,
@@ -17,7 +17,7 @@ from local_knowledge_mcp.server import (
     handle_search,
 )
 
-app = typer.Typer(help="local-knowledge-mcp - local knowledge indexing for explicit file and URL sources")
+app = typer.Typer(help="agent-knowledge-server - agent knowledge indexing for explicit file and URL sources")
 
 
 @app.command("add")
@@ -42,7 +42,7 @@ def add_text(
     original_ref: str | None = typer.Option(None, "--original-ref", help="Optional original reference"),
     notes: str | None = typer.Option(None, "--notes", help="Optional notes"),
 ):
-    from local_knowledge_mcp.server import handle_add_text_source
+    from agent_knowledge_server.server import handle_add_text_source
 
     typer.echo(
         handle_add_text_source(
@@ -129,6 +129,6 @@ def install(
 
 @app.command("serve")
 def serve():
-    from local_knowledge_mcp.server import main
+    from agent_knowledge_server.server import main
 
     main()

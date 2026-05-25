@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "local-knowledge-mcp"
+name = "agent-knowledge-server"
 version = "2.0.0"
-description = "Local MCP knowledge server for explicitly curated files and URLs"
+description = "Curated agent knowledge server for coding agents"
 requires-python = ">=3.11"
 dependencies = [
     "mcp>=1.0.0",
@@ -23,10 +23,10 @@ dev = [
 ]
 
 [project.scripts]
-local-knowledge-mcp = "local_knowledge_mcp.cli:app"
+agent-knowledge-server = "agent_knowledge_server.cli:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/local_knowledge_mcp"]
+packages = ["src/agent_knowledge_server"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

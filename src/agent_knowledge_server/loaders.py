@@ -129,7 +129,7 @@ def load_file_documents(path: Path) -> tuple[list[NormalizedDocument], dict]:
 
 def load_url_documents(url: str, source_dir: Path) -> tuple[list[NormalizedDocument], dict]:
     source_dir.mkdir(parents=True, exist_ok=True)
-    request = urllib.request.Request(url, headers={"User-Agent": "local-knowledge-mcp"})
+    request = urllib.request.Request(url, headers={"User-Agent": "agent-knowledge-server"})
     with urllib.request.urlopen(request, timeout=20) as response:
         raw_bytes = response.read()
         charset = "utf-8"

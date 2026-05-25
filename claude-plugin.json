@@ -1,13 +1,13 @@
 {
-  "name": "local-knowledge-mcp",
+  "name": "agent-knowledge-server",
   "version": "2.0.0",
-  "description": "Local knowledge indexing for explicit files and URLs",
+  "description": "Curated agent knowledge for coding agents",
   "servers": {
-    "local-knowledge": {
+    "agent-knowledge": {
       "type": "stdio",
-      "command": "local-knowledge-mcp",
+      "command": "agent-knowledge-server",
       "args": ["serve"],
-      "description": "Search local indexed knowledge from files and URLs"
+      "description": "Search curated agent knowledge from files, URLs, and text"
     }
   }
 }

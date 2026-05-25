@@ -1,4 +1,4 @@
-from local_knowledge_mcp.indexer import Indexer
+from agent_knowledge_server.indexer import Indexer
 
 
 def test_add_file_source_indexes_chunks(sample_pdf, mock_embedder, temp_config):

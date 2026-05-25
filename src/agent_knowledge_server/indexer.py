@@ -10,9 +10,9 @@ import chromadb
 from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 
-from local_knowledge_mcp.config import LocalKnowledgeConfig
-from local_knowledge_mcp.loaders import NormalizedDocument, load_file_documents, load_url_documents
-from local_knowledge_mcp.registry import DocumentSummary, SourceRecord, SourceRegistry
+from agent_knowledge_server.config import AgentKnowledgeConfig
+from agent_knowledge_server.loaders import NormalizedDocument, load_file_documents, load_url_documents
+from agent_knowledge_server.registry import DocumentSummary, SourceRecord, SourceRegistry
 
 
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
@@ -33,7 +33,7 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]
 
 
 class Indexer:
-    def __init__(self, cfg: LocalKnowledgeConfig) -> None:
+    def __init__(self, cfg: AgentKnowledgeConfig) -> None:
         self.cfg = cfg
         self.registry = SourceRegistry(cfg)
         self._model: SentenceTransformer | None = None
