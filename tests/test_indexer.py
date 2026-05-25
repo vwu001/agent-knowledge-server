@@ -41,3 +41,17 @@ def test_add_text_source_indexes_llm_provided_content(mock_embedder, temp_config
     assert source.status == "indexed"
     assert source.kind == "text"
     assert source.title == "Pricing Guide"
+
+
+def test_import_pdf_folder_adds_each_pdf_as_individual_source(tmp_path, sample_pdf, mock_embedder, temp_config):
+    folder = tmp_path / "pdfs"
+    folder.mkdir()
+    first = folder / "GuideA.pdf"
+    second = folder / "GuideB.pdf"
+    first.write_bytes(sample_pdf.read_bytes())
+    second.write_bytes(sample_pdf.read_bytes())
+
+    imported = Indexer(temp_config).import_pdf_folder(folder)
+
+    assert len(imported) == 2
+    assert all(source.kind == "file" for source in imported)

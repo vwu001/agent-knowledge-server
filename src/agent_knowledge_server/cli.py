@@ -59,6 +59,16 @@ def add_text(
     )
 
 
+@app.command("import-pdfs")
+def import_pdfs(
+    dir: str = typer.Option(..., "--dir", help="Folder containing curated PDFs"),
+    pattern: str = typer.Option("*.pdf", "--pattern", help="Glob pattern for PDF files"),
+):
+    from agent_knowledge_server.server import handle_import_pdf_folder
+
+    typer.echo(handle_import_pdf_folder({"dir": dir, "pattern": pattern}, load_config()))
+
+
 @app.command("list-sources")
 def list_sources():
     typer.echo(handle_list_sources({}, load_config()))

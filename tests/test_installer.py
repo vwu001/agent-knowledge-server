@@ -6,6 +6,7 @@ def test_build_skill_text_mentions_core_tools():
     assert "add_text_source" in skill_text
     assert "search_knowledge" in skill_text
     assert "forget_source" in skill_text
+    assert "import_pdf_folder" in skill_text
 
 
 def test_install_global_skill_writes_skill_md(tmp_path):

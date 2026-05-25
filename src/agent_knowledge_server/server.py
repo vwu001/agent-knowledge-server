@@ -44,6 +44,17 @@ def handle_add_text_source(arguments: dict[str, Any], cfg: AgentKnowledgeConfig)
     return f"Indexed source '{source.title or source.source_label or source.original}' with source_id={source.source_id}"
 
 
+def handle_import_pdf_folder(arguments: dict[str, Any], cfg: AgentKnowledgeConfig) -> str:
+    folder = arguments.get("dir")
+    pattern = arguments.get("pattern", "*.pdf")
+    if not folder:
+        return "Provide dir for PDF import."
+    imported = Indexer(cfg).import_pdf_folder(Path(folder), pattern=pattern)
+    if not imported:
+        return f"No PDFs found in {folder}"
+    return f"Imported {len(imported)} PDF source(s) from {folder}"
+
+
 def handle_list_sources(arguments: dict[str, Any], cfg: AgentKnowledgeConfig) -> str:
     sources = Searcher(cfg).list_sources()
     if not sources:
@@ -159,6 +170,18 @@ async def list_tools() -> list[Tool]:
                 "required": ["content", "source_label"],
             },
         ),
+        Tool(
+            name="import_pdf_folder",
+            description="Batch import a curated folder of PDFs as individual file sources.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "dir": {"type": "string"},
+                    "pattern": {"type": "string"},
+                },
+                "required": ["dir"],
+            },
+        ),
         Tool(name="list_sources", description="List indexed sources.", inputSchema={"type": "object", "properties": {}}),
         Tool(
             name="list_documents",
@@ -209,6 +232,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         text = handle_add(arguments, cfg)
     elif name in {"add_text_source", "add_text_source_from_context"}:
         text = handle_add_text_source(arguments, cfg)
+    elif name == "import_pdf_folder":
+        text = handle_import_pdf_folder(arguments, cfg)
     elif name == "list_sources":
         text = handle_list_sources(arguments, cfg)
     elif name == "list_documents":

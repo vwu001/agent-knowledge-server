@@ -84,3 +84,16 @@ def test_install_command_writes_skill_files(tmp_path, monkeypatch):
     assert (tmp_path / "codex-skills" / "agent-knowledge-server" / "SKILL.md").exists()
     assert (tmp_path / "claude-skills" / "agent-knowledge-server" / "SKILL.md").exists()
     assert "registered" in result.output.lower()
+
+
+def test_import_pdfs_command(tmp_path, sample_pdf, mock_embedder, temp_config, monkeypatch):
+    folder = tmp_path / "pdfs"
+    folder.mkdir()
+    (folder / "GuideA.pdf").write_bytes(sample_pdf.read_bytes())
+    (folder / "GuideB.pdf").write_bytes(sample_pdf.read_bytes())
+    monkeypatch.setattr("agent_knowledge_server.cli.load_config", lambda: temp_config)
+
+    result = runner.invoke(app, ["import-pdfs", "--dir", str(folder)])
+
+    assert result.exit_code == 0
+    assert "Imported 2 PDF source(s)" in result.output

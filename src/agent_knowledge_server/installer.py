@@ -23,6 +23,7 @@ Use this skill when the user wants to interact with the agent knowledge MCP.
 - If the user wants to save useful knowledge from accessible content, normalize the content first.
 - Prefer `add_text_source` for LLM-derived content.
 - Prefer `add_source` for a single explicit file path or URL.
+- Prefer `import_pdf_folder` for a curated folder of PDFs that should become individual sources.
 - Include a human-readable `source_label` whenever possible.
 
 ## Search Knowledge

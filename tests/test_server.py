@@ -2,6 +2,7 @@ from agent_knowledge_server.server import (
     handle_add,
     handle_add_text_source,
     handle_forget,
+    handle_import_pdf_folder,
     handle_list_documents,
     handle_list_sources,
     handle_refresh,
@@ -67,3 +68,14 @@ def test_handle_forget_supports_fuzzy_target(mock_embedder, temp_config):
     )
     result = handle_forget({"fuzzy_target": "pricing note"}, temp_config)
     assert "forgot" in result.lower()
+
+
+def test_handle_import_pdf_folder_returns_summary(tmp_path, sample_pdf, mock_embedder, temp_config):
+    folder = tmp_path / "pdfs"
+    folder.mkdir()
+    (folder / "GuideA.pdf").write_bytes(sample_pdf.read_bytes())
+    (folder / "GuideB.pdf").write_bytes(sample_pdf.read_bytes())
+
+    result = handle_import_pdf_folder({"dir": str(folder)}, temp_config)
+
+    assert "Imported 2 PDF source(s)" in result

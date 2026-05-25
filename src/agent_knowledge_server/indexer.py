@@ -131,6 +131,19 @@ class Indexer:
             self.registry.save(record)
             raise
 
+    def import_pdf_folder(self, folder: Path, pattern: str = "*.pdf") -> list[SourceRecord]:
+        folder = Path(folder).expanduser()
+        if not folder.exists():
+            raise FileNotFoundError(f"Folder not found: {folder}")
+        if not folder.is_dir():
+            raise ValueError(f"Not a folder: {folder}")
+
+        imported: list[SourceRecord] = []
+        for pdf_path in sorted(folder.glob(pattern)):
+            if pdf_path.is_file():
+                imported.append(self.add_file_source(pdf_path))
+        return imported
+
     def add_url_source(self, url: str) -> SourceRecord:
         record = self.registry.upsert_url(url)
         try:

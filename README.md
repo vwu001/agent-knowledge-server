@@ -17,6 +17,7 @@ agent-knowledge-server install
 agent-knowledge-server add --file ~/docs/guide.pdf
 agent-knowledge-server add --url https://example.com/page
 agent-knowledge-server add-text --source-label "Confluence Pricing Guide" --content "Normalized page content"
+agent-knowledge-server import-pdfs --dir ~/docs/curated-pdfs
 agent-knowledge-server list-sources
 agent-knowledge-server list-documents
 agent-knowledge-server search "database queries"
@@ -30,6 +31,7 @@ agent-knowledge-server forget --target "pricing guide"
 - `add_source`
 - `add_text_source`
 - `add_text_source_from_context`
+- `import_pdf_folder`
 - `list_sources`
 - `list_documents`
 - `search_knowledge`
@@ -43,8 +45,19 @@ agent-knowledge-server forget --target "pricing guide"
 - plain text
 - HTML
 - one URL at a time, with a stored snapshot
+- curated PDF folders imported as individual PDF sources
 
 Folder indexing and crawling are intentionally out of scope.
+
+## Curated PDF Batch Import
+
+If you have a trusted folder of PDFs you want in the knowledge base, use:
+
+```bash
+agent-knowledge-server import-pdfs --dir ~/docs/curated-pdfs
+```
+
+This imports each PDF as its own file source. After import, you can still list, refresh, and forget individual PDFs independently.
 
 ## LLM-Assisted Ingestion
 
