@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "gw-docs-mcp"
-version = "1.0.0"
-description = "Local semantic search over Guidewire PDF documentation for Claude"
+name = "local-knowledge-mcp"
+version = "2.0.0"
+description = "Local MCP knowledge server for explicitly curated files and URLs"
 requires-python = ">=3.11"
 dependencies = [
     "mcp>=1.0.0",
@@ -23,10 +23,10 @@ dev = [
 ]
 
 [project.scripts]
-gw-docs-mcp = "gw_docs_mcp.cli:app"
+local-knowledge-mcp = "local_knowledge_mcp.cli:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/gw_docs_mcp"]
+packages = ["src/local_knowledge_mcp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

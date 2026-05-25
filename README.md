@@ -1,76 +1,74 @@
-# gw-docs-mcp
+# local-knowledge-mcp
 
-Local semantic search over Guidewire PDF documentation for Claude. Fully offline after first model download (~90MB). Three MCP tools: `search_gw_docs`, `list_gw_docs`, `reindex_gw_docs`; four CLI commands: `index`, `reset`, `status`, `configure`.
+Local MCP knowledge server for explicitly curated sources. Add one file path or one URL at a time, index it locally, then search, list, refresh, or forget that source.
 
 ## Install
 
 ```bash
-# 1. Install from GitHub
-pip install git+https://github.com/vwu001/gw-docs-mcp.git
-
-# 2. Register with Claude Code
-claude mcp add --scope user gw-docs -- gw-docs-mcp serve
-
-# 3. Point at your PDF directory
-gw-docs-mcp configure --pdf-dir ~/gwdocs
-
-# 4. Index (one-time; first run downloads ~90MB model)
-gw-docs-mcp index
-
-# 5. Verify
-gw-docs-mcp status
+pip install git+https://github.com/vwu001/local-knowledge-mcp.git
+local-knowledge-mcp install
 ```
 
-Start a **new Claude Code session** after step 2 — MCP tools load at session start.
+`local-knowledge-mcp install` installs the global assistant skill and attempts MCP registration for supported targets. Start a new assistant session after installation so the MCP tools and skill are available.
 
-## Tools Available in Claude
+## Core Actions
 
-| Tool | Description |
-|---|---|
-| `search_gw_docs(query)` | Semantic search — returns top matching snippets with source + page |
-| `list_gw_docs()` | Show what PDFs are indexed and how many chunks each has |
-| `reindex_gw_docs()` | Re-index after adding new PDFs |
-
-## Example Queries
-
-```
-search_gw_docs("RowIterator read-only list view")
-search_gw_docs("Gosu for loop syntax")
-search_gw_docs("entity retireable marker")
-search_gw_docs("Query.make orderBy")
-search_gw_docs("SearchPanel criteria serializable")
+```bash
+local-knowledge-mcp add --file ~/docs/guide.pdf
+local-knowledge-mcp add --url https://example.com/page
+local-knowledge-mcp add-text --source-label "Confluence Pricing Guide" --content "Normalized page content"
+local-knowledge-mcp list-sources
+local-knowledge-mcp list-documents
+local-knowledge-mcp search "database queries"
+local-knowledge-mcp refresh --source-id file-123abc
+local-knowledge-mcp forget --source-id url-456def
+local-knowledge-mcp forget --target "pricing guide"
 ```
 
-## Supported PDFs
+## MCP Tools
 
-Drop any Guidewire PDF into your configured directory and run `gw-docs-mcp index`. Works with:
-- UserInterfaceConfig.pdf
-- GosuRules.pdf / GosuRefGuide.pdf
-- DataModelConfig.pdf
-- ConfigPC.pdf
-- WorkflowConfig.pdf
-- ProductModelGuide.pdf
+- `add_source`
+- `add_text_source`
+- `add_text_source_from_context`
+- `list_sources`
+- `list_documents`
+- `search_knowledge`
+- `refresh_source`
+- `forget_source`
+
+## Supported Inputs
+
+- PDF
+- Markdown
+- plain text
+- HTML
+- one URL at a time, with a stored snapshot
+
+Folder indexing and crawling are intentionally out of scope.
+
+## LLM-Assisted Ingestion
+
+If Codex or Claude can already read the content, they can save it directly into local knowledge without a dedicated parser or connector. The intended pattern is:
+
+- extract or normalize the useful content
+- call `add_text_source` with `content` and `source_label`
+- later remove it with `forget_source` using a natural target if the saved knowledge is wrong
+
+This is useful for browser-visible pages, pasted content, repo notes, Confluence pages, and other assistant-accessible material.
+
+## Installer Modes
+
+```bash
+local-knowledge-mcp install
+local-knowledge-mcp install --mcp-only
+local-knowledge-mcp install --skill-only
+local-knowledge-mcp install --codex
+local-knowledge-mcp install --claude
+```
 
 ## Storage
 
-All data is local:
-- `~/.gw-docs-mcp/chroma/` — vector index (ChromaDB)
-- `~/.gw-docs-mcp/models/` — embedding model cache
-- `~/.config/gw-docs-mcp/config.toml` — configuration
-
-## Re-indexing
-
-**Adding new PDFs** — incremental, upserts only new/changed chunks:
-```bash
-gw-docs-mcp index
-# or from within Claude: reindex_gw_docs()
-```
-
-**PDF removed or renamed** — must wipe and rebuild the index from scratch:
-```bash
-gw-docs-mcp reset
-# with -y to skip the confirmation prompt
-gw-docs-mcp reset -y
-```
-
-`reset` deletes `~/.gw-docs-mcp/chroma/` then immediately re-indexes all PDFs in the configured directory. Use it any time the set of PDFs changes (removals or renames) — `index` alone will leave stale chunks from deleted files.
+- `~/.config/local-knowledge-mcp/config.toml`
+- `~/.local/share/local-knowledge-mcp/sources/`
+- `~/.local/share/local-knowledge-mcp/chroma/`
+- `~/.local/share/local-knowledge-mcp/models/`

@@ -1,63 +1,40 @@
-import shutil
-from pathlib import Path
-import pytest
-from gw_docs_mcp.indexer import Indexer
-from gw_docs_mcp.searcher import Searcher, SearchResult
+from local_knowledge_mcp.indexer import Indexer
+from local_knowledge_mcp.searcher import Searcher, SearchResult
 
 
-def _build_index(tmp_path, sample_pdf, mock_embedder, temp_config):
-    pdf_dir = tmp_path / "pdfs"
-    pdf_dir.mkdir()
-    shutil.copy(sample_pdf, pdf_dir / sample_pdf.name)
-    indexer = Indexer(temp_config)
-    indexer.index_directory(pdf_dir)
+def test_search_returns_results(sample_pdf, mock_embedder, temp_config):
+    Indexer(temp_config).add_file_source(sample_pdf)
+    results = Searcher(temp_config).search("read only list view", top_k=3)
 
-
-def test_search_returns_results(tmp_path, sample_pdf, mock_embedder, temp_config):
-    _build_index(tmp_path, sample_pdf, mock_embedder, temp_config)
-    searcher = Searcher(temp_config)
-    results = searcher.search("RowIterator editable", top_k=3)
     assert len(results) > 0
     assert isinstance(results[0], SearchResult)
 
 
-def test_search_result_has_required_fields(tmp_path, sample_pdf, mock_embedder, temp_config):
-    _build_index(tmp_path, sample_pdf, mock_embedder, temp_config)
-    searcher = Searcher(temp_config)
-    results = searcher.search("query", top_k=1)
-    r = results[0]
-    assert isinstance(r.text, str) and len(r.text) > 0
-    assert isinstance(r.source, str)
-    assert isinstance(r.page, int)
-    assert isinstance(r.score, float)
+def test_list_sources_returns_indexed_sources(sample_pdf, mock_embedder, temp_config):
+    Indexer(temp_config).add_file_source(sample_pdf)
+    sources = Searcher(temp_config).list_sources()
+
+    assert len(sources) == 1
+    assert sources[0].kind == "file"
 
 
-def test_search_respects_top_k(tmp_path, sample_pdf, mock_embedder, temp_config):
-    _build_index(tmp_path, sample_pdf, mock_embedder, temp_config)
-    searcher = Searcher(temp_config)
-    results = searcher.search("query", top_k=1)
-    assert len(results) <= 1
+def test_list_documents_returns_normalized_documents(sample_markdown, mock_embedder, temp_config):
+    Indexer(temp_config).add_file_source(sample_markdown)
+    documents = Searcher(temp_config).list_documents()
+
+    assert len(documents) >= 1
+    assert documents[0]["source_id"]
 
 
-def test_list_docs_returns_indexed_files(tmp_path, sample_pdf, mock_embedder, temp_config):
-    _build_index(tmp_path, sample_pdf, mock_embedder, temp_config)
-    searcher = Searcher(temp_config)
-    docs = searcher.list_docs()
-    assert len(docs) >= 1
-    sources = [d["source"] for d in docs]
-    assert sample_pdf.name in sources
+def test_find_sources_by_fuzzy_target_matches_label(mock_embedder, temp_config):
+    indexer = Indexer(temp_config)
+    source = indexer.add_text_source(
+        content="Bad summary that should be removed.",
+        source_label="Confluence Pricing Summary",
+        title="Pricing Summary",
+    )
 
+    matches = Searcher(temp_config).find_sources("pricing summary")
 
-def test_list_docs_includes_chunk_count(tmp_path, sample_pdf, mock_embedder, temp_config):
-    _build_index(tmp_path, sample_pdf, mock_embedder, temp_config)
-    searcher = Searcher(temp_config)
-    docs = searcher.list_docs()
-    for d in docs:
-        assert "chunks" in d
-        assert d["chunks"] > 0
-
-
-def test_search_empty_index(tmp_path, mock_embedder, temp_config):
-    searcher = Searcher(temp_config)
-    results = searcher.search("anything", top_k=5)
-    assert results == []
+    assert len(matches) == 1
+    assert matches[0].source_id == source.source_id

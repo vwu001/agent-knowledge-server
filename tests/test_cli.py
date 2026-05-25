@@ -1,65 +1,86 @@
-import shutil
-from pathlib import Path
 from typer.testing import CliRunner
-from gw_docs_mcp.cli import app
+
+from local_knowledge_mcp.cli import app
 
 runner = CliRunner()
 
 
-def test_configure_writes_config(tmp_path, monkeypatch):
-    config_path = tmp_path / "config.toml"
-    monkeypatch.setattr("gw_docs_mcp.config.DEFAULT_CONFIG_PATH", config_path)
-    monkeypatch.setattr("gw_docs_mcp.cli.DEFAULT_CONFIG_PATH", config_path)
-    result = runner.invoke(app, ["configure", "--pdf-dir", str(tmp_path)])
+def test_add_file_command(sample_pdf, mock_embedder, temp_config, monkeypatch):
+    monkeypatch.setattr("local_knowledge_mcp.cli.load_config", lambda: temp_config)
+    result = runner.invoke(app, ["add", "--file", str(sample_pdf)])
     assert result.exit_code == 0
-    assert "Saved" in result.output
-    assert config_path.exists()
+    assert "indexed" in result.output.lower()
 
 
-def test_configure_shows_saved_path(tmp_path, monkeypatch):
-    config_path = tmp_path / "config.toml"
-    monkeypatch.setattr("gw_docs_mcp.config.DEFAULT_CONFIG_PATH", config_path)
-    monkeypatch.setattr("gw_docs_mcp.cli.DEFAULT_CONFIG_PATH", config_path)
-    result = runner.invoke(app, ["configure", "--pdf-dir", "/my/pdfs"])
-    assert "/my/pdfs" in result.output
-
-
-def test_index_command(tmp_path, sample_pdf, mock_embedder, temp_config, monkeypatch):
-    pdf_dir = tmp_path / "pdfs"
-    pdf_dir.mkdir()
-    shutil.copy(sample_pdf, pdf_dir / sample_pdf.name)
-    temp_config.docs.pdf_dir = str(pdf_dir)
-
-    monkeypatch.setattr("gw_docs_mcp.cli.load_config", lambda: temp_config)
-    result = runner.invoke(app, ["index"])
+def test_list_sources_command(sample_pdf, mock_embedder, temp_config, monkeypatch):
+    monkeypatch.setattr("local_knowledge_mcp.cli.load_config", lambda: temp_config)
+    runner.invoke(app, ["add", "--file", str(sample_pdf)])
+    result = runner.invoke(app, ["list-sources"])
     assert result.exit_code == 0
     assert sample_pdf.name in result.output
 
 
-def test_index_command_with_override_dir(tmp_path, sample_pdf, mock_embedder, temp_config, monkeypatch):
-    pdf_dir = tmp_path / "pdfs"
-    pdf_dir.mkdir()
-    shutil.copy(sample_pdf, pdf_dir / sample_pdf.name)
-    monkeypatch.setattr("gw_docs_mcp.cli.load_config", lambda: temp_config)
-    result = runner.invoke(app, ["index", "--pdf-dir", str(pdf_dir)])
+def test_search_command(sample_pdf, mock_embedder, temp_config, monkeypatch):
+    monkeypatch.setattr("local_knowledge_mcp.cli.load_config", lambda: temp_config)
+    runner.invoke(app, ["add", "--file", str(sample_pdf)])
+    result = runner.invoke(app, ["search", "database queries"])
     assert result.exit_code == 0
-    assert sample_pdf.name in result.output
+    assert "Query.make" in result.output
 
 
-def test_status_shows_indexed_files(tmp_path, sample_pdf, mock_embedder, temp_config, monkeypatch):
-    pdf_dir = tmp_path / "pdfs"
-    pdf_dir.mkdir()
-    shutil.copy(sample_pdf, pdf_dir / sample_pdf.name)
-    from gw_docs_mcp.indexer import Indexer
-    Indexer(temp_config).index_directory(pdf_dir)
-    monkeypatch.setattr("gw_docs_mcp.cli.load_config", lambda: temp_config)
-    result = runner.invoke(app, ["status"])
+def test_add_text_command(mock_embedder, temp_config, monkeypatch):
+    monkeypatch.setattr("local_knowledge_mcp.cli.load_config", lambda: temp_config)
+    result = runner.invoke(
+        app,
+        [
+            "add-text",
+            "--source-label",
+            "repo notes",
+            "--content",
+            "Local setup notes for this repository.",
+            "--title",
+            "Repo Notes",
+        ],
+    )
     assert result.exit_code == 0
-    assert sample_pdf.name in result.output
+    assert "indexed" in result.output.lower()
 
 
-def test_status_no_docs(tmp_path, mock_embedder, temp_config, monkeypatch):
-    monkeypatch.setattr("gw_docs_mcp.cli.load_config", lambda: temp_config)
-    result = runner.invoke(app, ["status"])
+def test_forget_by_target_command(mock_embedder, temp_config, monkeypatch):
+    monkeypatch.setattr("local_knowledge_mcp.cli.load_config", lambda: temp_config)
+    runner.invoke(
+        app,
+        [
+            "add-text",
+            "--source-label",
+            "bad note",
+            "--content",
+            "This note is wrong.",
+            "--title",
+            "Bad Note",
+        ],
+    )
+    result = runner.invoke(app, ["forget", "--target", "bad note", "--yes"])
     assert result.exit_code == 0
-    assert "No documents" in result.output
+    assert "forgot" in result.output.lower()
+
+
+def test_install_command_writes_skill_files(tmp_path, monkeypatch):
+    from local_knowledge_mcp import installer
+
+    monkeypatch.setattr("local_knowledge_mcp.cli.load_config", lambda: None)
+    monkeypatch.setattr(installer, "detect_targets", lambda codex, claude: ["codex", "claude"])
+    monkeypatch.setattr(
+        installer,
+        "default_skill_dirs",
+        lambda: {"codex": tmp_path / "codex-skills", "claude": tmp_path / "claude-skills"},
+    )
+    monkeypatch.setattr(installer, "register_claude_mcp", lambda: (True, "registered"))
+    monkeypatch.setattr(installer, "codex_mcp_guidance", lambda: "Run codex MCP registration manually.")
+
+    result = runner.invoke(app, ["install"])
+
+    assert result.exit_code == 0
+    assert (tmp_path / "codex-skills" / "local-knowledge-mcp" / "SKILL.md").exists()
+    assert (tmp_path / "claude-skills" / "local-knowledge-mcp" / "SKILL.md").exists()
+    assert "registered" in result.output.lower()

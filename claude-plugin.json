@@ -1,13 +1,13 @@
 {
-  "name": "gw-docs-mcp",
-  "version": "1.0.0",
-  "description": "Local semantic search over Guidewire PDF documentation for Claude",
+  "name": "local-knowledge-mcp",
+  "version": "2.0.0",
+  "description": "Local knowledge indexing for explicit files and URLs",
   "servers": {
-    "gw-docs": {
+    "local-knowledge": {
       "type": "stdio",
-      "command": "gw-docs-mcp",
+      "command": "local-knowledge-mcp",
       "args": ["serve"],
-      "description": "Search GW docs locally — fully offline after first model download"
+      "description": "Search local indexed knowledge from files and URLs"
     }
   }
 }
