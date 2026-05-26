@@ -147,7 +147,7 @@ def upgrade(
 
     typer.echo("Upgrading agent-knowledge-server...")
     proc = subprocess.run(
-        [sys.executable, "-m", "pip", "install", "--upgrade", "agent-knowledge-server"],
+        [sys.executable, "-m", "pip", "install", "--upgrade", "-q", "agent-knowledge-server"],
         capture_output=True,
         text=True,
     )
