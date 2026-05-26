@@ -1,11 +1,25 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import shutil
 import subprocess
 
 
 SKILL_NAME = "agent-knowledge-server"
+SERVER_NAME = "agent-knowledge"
+CODEX_SERVER_HEADER = f"[mcp_servers.{SERVER_NAME}]"
+CLAUDE_ALLOWED_TOOLS = [
+    "mcp__agent-knowledge__add_source",
+    "mcp__agent-knowledge__add_text_source",
+    "mcp__agent-knowledge__add_text_source_from_context",
+    "mcp__agent-knowledge__import_pdf_folder",
+    "mcp__agent-knowledge__list_sources",
+    "mcp__agent-knowledge__list_documents",
+    "mcp__agent-knowledge__search_knowledge",
+    "mcp__agent-knowledge__refresh_source",
+    "mcp__agent-knowledge__forget_source",
+]
 
 
 def build_skill_text() -> str:
@@ -17,6 +31,46 @@ description: Use when a user wants to save useful content to agent knowledge, se
 # agent-knowledge-server
 
 Use this skill when the user wants to interact with the agent knowledge MCP.
+
+## Setup
+
+- Install or refresh the skill and MCP registration with `agent-knowledge-server install`.
+- After installation, start a new assistant session before relying on the MCP tools.
+- The installer is expected to write the MCP config and Claude permissions for you.
+- If Codex or Claude can see this skill but the MCP tools are missing or still prompting too much, inspect the local MCP config before doing knowledge work.
+
+### Codex Setup
+
+- Codex uses `~/.codex/config.toml`, not `settings.json`, for MCP registration and approval defaults.
+- `agent-knowledge-server install` should ensure `~/.codex/config.toml` contains:
+
+```toml
+[mcp_servers.agent-knowledge]
+command = "agent-knowledge-server"
+args = ["serve"]
+default_tools_approval_mode = "approve"
+```
+
+- If you prefer tighter control, keep `default_tools_approval_mode = "prompt"` and set per-tool approval overrides instead.
+
+### Claude Setup
+
+- `agent-knowledge-server install` should register the Claude MCP server and update `~/.claude/settings.json`.
+- The `permissions.allow` array should include:
+
+```json
+[
+  "mcp__agent-knowledge__add_source",
+  "mcp__agent-knowledge__add_text_source",
+  "mcp__agent-knowledge__add_text_source_from_context",
+  "mcp__agent-knowledge__import_pdf_folder",
+  "mcp__agent-knowledge__list_sources",
+  "mcp__agent-knowledge__list_documents",
+  "mcp__agent-knowledge__search_knowledge",
+  "mcp__agent-knowledge__refresh_source",
+  "mcp__agent-knowledge__forget_source"
+]
+```
 
 ## Save Knowledge
 
@@ -51,6 +105,14 @@ def default_skill_dirs() -> dict[str, Path]:
     }
 
 
+def default_codex_config_path() -> Path:
+    return Path.home() / ".codex" / "config.toml"
+
+
+def default_claude_settings_path() -> Path:
+    return Path.home() / ".claude" / "settings.json"
+
+
 def install_global_skill(base_dir: Path, skill_name: str = SKILL_NAME) -> Path:
     skill_dir = base_dir / skill_name
     skill_dir.mkdir(parents=True, exist_ok=True)
@@ -68,6 +130,65 @@ def detect_targets(codex: bool, claude: bool) -> list[str]:
             targets.append("claude")
         return targets
     return ["codex", "claude"]
+
+
+def _render_codex_server_block() -> str:
+    return (
+        f"{CODEX_SERVER_HEADER}\n"
+        'command = "agent-knowledge-server"\n'
+        'args = ["serve"]\n'
+        'default_tools_approval_mode = "approve"\n'
+    )
+
+
+def _replace_toml_section(text: str, header: str, replacement: str) -> str:
+    lines = text.splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        if line.strip() != header:
+            continue
+        end = index + 1
+        while end < len(lines):
+            stripped = lines[end].strip()
+            if stripped.startswith("[") and stripped.endswith("]"):
+                break
+            end += 1
+        replacement_text = replacement if replacement.endswith("\n") else f"{replacement}\n"
+        updated = "".join(lines[:index]) + replacement_text
+        if end < len(lines):
+            updated += "".join(lines[end:])
+        return updated
+
+    if not text:
+        return replacement if replacement.endswith("\n") else f"{replacement}\n"
+
+    suffix = "" if text.endswith("\n") else "\n"
+    replacement_text = replacement if replacement.endswith("\n") else f"{replacement}\n"
+    return f"{text}{suffix}\n{replacement_text}"
+
+
+def configure_codex_mcp(config_path: Path) -> str:
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    existing = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
+    updated = _replace_toml_section(existing, CODEX_SERVER_HEADER, _render_codex_server_block())
+    config_path.write_text(updated, encoding="utf-8")
+    return f"Codex MCP: configured {config_path}"
+
+
+def configure_claude_permissions(settings_path: Path) -> str:
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    if settings_path.exists():
+        payload = json.loads(settings_path.read_text(encoding="utf-8"))
+    else:
+        payload = {}
+
+    permissions = payload.setdefault("permissions", {})
+    allow = permissions.setdefault("allow", [])
+    for tool_name in CLAUDE_ALLOWED_TOOLS:
+        if tool_name not in allow:
+            allow.append(tool_name)
+
+    settings_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return f"Claude permissions: updated {settings_path}"
 
 
 def register_claude_mcp() -> tuple[bool, str]:
@@ -89,7 +210,12 @@ def register_claude_mcp() -> tuple[bool, str]:
 
 
 def codex_mcp_guidance() -> str:
-    return "Codex MCP registration may require local environment-specific setup. Ensure the agent-knowledge MCP server is registered in your Codex environment and restart the session."
+    return (
+        "Ensure ~/.codex/config.toml contains "
+        "[mcp_servers.agent-knowledge] command = \"agent-knowledge-server\", "
+        "args = [\"serve\"], and default_tools_approval_mode = \"approve\", "
+        "then restart the session."
+    )
 
 
 def install_everything(
@@ -110,11 +236,12 @@ def install_everything(
 
     if install_mcp:
         if "claude" in targets:
+            messages.append(configure_claude_permissions(default_claude_settings_path()))
             ok, message = register_claude_mcp()
             prefix = "Claude MCP" if ok else "Claude MCP notice"
             messages.append(f"{prefix}: {message}")
         if "codex" in targets:
-            messages.append(f"Codex MCP notice: {codex_mcp_guidance()}")
+            messages.append(configure_codex_mcp(default_codex_config_path()))
 
     messages.append("Start a new assistant session after installation.")
     return messages

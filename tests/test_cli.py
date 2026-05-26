@@ -75,14 +75,17 @@ def test_install_command_writes_skill_files(tmp_path, monkeypatch):
         "default_skill_dirs",
         lambda: {"codex": tmp_path / "codex-skills", "claude": tmp_path / "claude-skills"},
     )
+    monkeypatch.setattr(installer, "default_codex_config_path", lambda: tmp_path / "codex-config.toml")
+    monkeypatch.setattr(installer, "default_claude_settings_path", lambda: tmp_path / "claude-settings.json")
     monkeypatch.setattr(installer, "register_claude_mcp", lambda: (True, "registered"))
-    monkeypatch.setattr(installer, "codex_mcp_guidance", lambda: "Run codex MCP registration manually.")
 
     result = runner.invoke(app, ["install"])
 
     assert result.exit_code == 0
     assert (tmp_path / "codex-skills" / "agent-knowledge-server" / "SKILL.md").exists()
     assert (tmp_path / "claude-skills" / "agent-knowledge-server" / "SKILL.md").exists()
+    assert (tmp_path / "codex-config.toml").exists()
+    assert (tmp_path / "claude-settings.json").exists()
     assert "registered" in result.output.lower()
 
 

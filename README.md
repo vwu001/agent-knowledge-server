@@ -9,7 +9,18 @@ pip install git+https://github.com/vwu001/agent-knowledge-server.git
 agent-knowledge-server install
 ```
 
-`agent-knowledge-server install` installs the global assistant skill and attempts MCP registration for supported targets. Start a new assistant session after installation so the MCP tools and skill are available.
+`agent-knowledge-server install` installs the global assistant skill, writes the Codex MCP config, updates Claude MCP tool permissions, and attempts Claude MCP registration. Start a new assistant session after installation so the MCP tools and skill are available.
+
+Codex uses `~/.codex/config.toml` for MCP setup, not `settings.json`. The installer writes:
+
+```toml
+[mcp_servers.agent-knowledge]
+command = "agent-knowledge-server"
+args = ["serve"]
+default_tools_approval_mode = "approve"
+```
+
+Claude uses `~/.claude/settings.json` for tool permissions. The installer updates `permissions.allow` with the `mcp__agent-knowledge__...` tools written in the generated skill.
 
 ## Core Actions
 
