@@ -137,6 +137,36 @@ def install(
         typer.echo(message)
 
 
+@app.command("upgrade")
+def upgrade(
+    codex: bool = typer.Option(False, "--codex", help="Target Codex only"),
+    claude: bool = typer.Option(False, "--claude", help="Target Claude only"),
+):
+    import subprocess
+    import sys
+
+    typer.echo("Upgrading agent-knowledge-server...")
+    proc = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "--upgrade", "agent-knowledge-server"],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        typer.echo(proc.stderr.strip() or "pip upgrade failed.", err=True)
+        raise typer.Exit(1)
+    typer.echo(proc.stdout.strip())
+
+    typer.echo("Updating skills...")
+    messages = install_everything(
+        install_skill=True,
+        install_mcp=False,
+        codex=codex,
+        claude=claude,
+    )
+    for message in messages:
+        typer.echo(message)
+
+
 @app.command("serve")
 def serve():
     from agent_knowledge_server.server import main
