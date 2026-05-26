@@ -21,7 +21,8 @@ Use this skill when the user wants to interact with the agent knowledge MCP.
 ## Save Knowledge
 
 - If the user wants to save useful knowledge from accessible content, normalize the content first.
-- Prefer `add_text_source` for LLM-derived content.
+- Prefer `add_text_source` for LLM-derived content provided by the user.
+- Prefer `add_text_source_from_context` when the content is derived from the current assistant conversation context.
 - Prefer `add_source` for a single explicit file path or URL.
 - Prefer `import_pdf_folder` for a curated folder of PDFs that should become individual sources.
 - Include a human-readable `source_label` whenever possible.
@@ -30,6 +31,11 @@ Use this skill when the user wants to interact with the agent knowledge MCP.
 
 - Use `search_knowledge` to find previously saved information.
 - Use `list_sources` or `list_documents` when the user wants to inspect what is stored.
+
+## Refresh Knowledge
+
+- Use `refresh_source` when a source is stale or the user wants to re-index it from its original location.
+- Requires `source_id`; use `list_sources` first if the id is unknown.
 
 ## Remove Wrong Knowledge
 
