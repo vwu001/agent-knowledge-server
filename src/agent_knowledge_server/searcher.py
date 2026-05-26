@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import chromadb
 from chromadb.config import Settings
+from chromadb.errors import NotFoundError
 from sentence_transformers import SentenceTransformer
 
 from agent_knowledge_server.config import AgentKnowledgeConfig
@@ -39,11 +40,16 @@ class Searcher:
             path=str(self.cfg.paths.chroma_dir),
             settings=Settings(anonymized_telemetry=False),
         )
-        return client.get_or_create_collection("local_knowledge")
+        try:
+            return client.get_collection("local_knowledge")
+        except NotFoundError:
+            return None
 
     def search(self, query: str, top_k: int | None = None) -> list[SearchResult]:
         k = top_k if top_k is not None else self.cfg.search.top_k
         collection = self._get_collection()
+        if collection is None:
+            return []
         if collection.count() == 0:
             return []
         model = self._get_model()

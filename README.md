@@ -85,3 +85,8 @@ agent-knowledge-server install --claude
 - `~/.local/share/agent-knowledge-server/sources/`
 - `~/.local/share/agent-knowledge-server/chroma/`
 - `~/.local/share/agent-knowledge-server/models/`
+
+## Runtime Notes
+
+- Search uses the existing Chroma collection without trying to create or mutate it, so queries against an already indexed read-only Chroma store continue to work.
+- Mutating operations (`add`, `add-text`, `import-pdfs`, `refresh`, `forget`) are serialized with a local file lock at `~/.local/share/agent-knowledge-server/.write.lock` to avoid concurrent write races when multiple agents share one data directory.

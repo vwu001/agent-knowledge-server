@@ -1,3 +1,5 @@
+import os
+
 from agent_knowledge_server.indexer import Indexer
 from agent_knowledge_server.searcher import Searcher, SearchResult
 
@@ -38,3 +40,18 @@ def test_find_sources_by_fuzzy_target_matches_label(mock_embedder, temp_config):
 
     assert len(matches) == 1
     assert matches[0].source_id == source.source_id
+
+
+def test_search_works_with_read_only_chroma_store(sample_pdf, mock_embedder, temp_config):
+    Indexer(temp_config).add_file_source(sample_pdf)
+
+    for path in sorted(temp_config.paths.chroma_dir.rglob("*"), reverse=True):
+        if path.is_dir():
+            os.chmod(path, 0o555)
+        else:
+            os.chmod(path, 0o444)
+    os.chmod(temp_config.paths.chroma_dir, 0o555)
+
+    results = Searcher(temp_config).search("database queries", top_k=3)
+
+    assert len(results) > 0

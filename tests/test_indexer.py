@@ -1,3 +1,6 @@
+import threading
+import time
+
 from agent_knowledge_server.indexer import Indexer
 
 
@@ -55,3 +58,52 @@ def test_import_pdf_folder_adds_each_pdf_as_individual_source(tmp_path, sample_p
 
     assert len(imported) == 2
     assert all(source.kind == "file" for source in imported)
+
+
+def test_mutating_operations_are_serialized_across_indexers(mock_embedder, temp_config, monkeypatch):
+    active_writers = 0
+    max_active_writers = 0
+    lock = threading.Lock()
+    entered = threading.Event()
+
+    original = Indexer._index_documents
+
+    def wrapped(self, record, documents, meta):
+        nonlocal active_writers, max_active_writers
+        with lock:
+            active_writers += 1
+            max_active_writers = max(max_active_writers, active_writers)
+            entered.set()
+        time.sleep(0.2)
+        try:
+            return original(self, record, documents, meta)
+        finally:
+            with lock:
+                active_writers -= 1
+
+    monkeypatch.setattr(Indexer, "_index_documents", wrapped)
+
+    indexer_a = Indexer(temp_config)
+    indexer_b = Indexer(temp_config)
+    results = []
+
+    def add_note(indexer, label):
+        results.append(
+            indexer.add_text_source(
+                content=f"{label} knowledge",
+                source_label=label,
+                title=label,
+            )
+        )
+
+    first = threading.Thread(target=add_note, args=(indexer_a, "Note A"))
+    second = threading.Thread(target=add_note, args=(indexer_b, "Note B"))
+
+    first.start()
+    entered.wait(timeout=1)
+    second.start()
+    first.join()
+    second.join()
+
+    assert len(results) == 2
+    assert max_active_writers == 1

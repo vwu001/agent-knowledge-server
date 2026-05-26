@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime
+import fcntl
 from hashlib import sha1
 from pathlib import Path
 import shutil
@@ -52,6 +54,19 @@ class Indexer:
             settings=Settings(anonymized_telemetry=False),
         )
         return client.get_or_create_collection("local_knowledge")
+
+    def _lock_path(self) -> Path:
+        return self.cfg.paths.data_dir / ".write.lock"
+
+    @contextmanager
+    def _write_lock(self):
+        self.cfg.paths.data_dir.mkdir(parents=True, exist_ok=True)
+        with open(self._lock_path(), "a+b") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
     def _delete_source_chunks(self, source_id: str) -> None:
         collection = self._get_collection()
@@ -117,7 +132,7 @@ class Indexer:
         ]
         return self.registry.save(record)
 
-    def add_file_source(self, path: Path) -> SourceRecord:
+    def _add_file_source_unlocked(self, path: Path) -> SourceRecord:
         path = Path(path).expanduser()
         if path.is_dir():
             raise ValueError(f"Folder paths are not supported: {path}")
@@ -131,7 +146,11 @@ class Indexer:
             self.registry.save(record)
             raise
 
-    def import_pdf_folder(self, folder: Path, pattern: str = "*.pdf") -> list[SourceRecord]:
+    def add_file_source(self, path: Path) -> SourceRecord:
+        with self._write_lock():
+            return self._add_file_source_unlocked(path)
+
+    def _import_pdf_folder_unlocked(self, folder: Path, pattern: str = "*.pdf") -> list[SourceRecord]:
         folder = Path(folder).expanduser()
         if not folder.exists():
             raise FileNotFoundError(f"Folder not found: {folder}")
@@ -141,10 +160,14 @@ class Indexer:
         imported: list[SourceRecord] = []
         for pdf_path in sorted(folder.glob(pattern)):
             if pdf_path.is_file():
-                imported.append(self.add_file_source(pdf_path))
+                imported.append(self._add_file_source_unlocked(pdf_path))
         return imported
 
-    def add_url_source(self, url: str) -> SourceRecord:
+    def import_pdf_folder(self, folder: Path, pattern: str = "*.pdf") -> list[SourceRecord]:
+        with self._write_lock():
+            return self._import_pdf_folder_unlocked(folder, pattern=pattern)
+
+    def _add_url_source_unlocked(self, url: str) -> SourceRecord:
         record = self.registry.upsert_url(url)
         try:
             documents, meta = load_url_documents(url, self._source_dir(record.source_id))
@@ -155,7 +178,11 @@ class Indexer:
             self.registry.save(record)
             raise
 
-    def add_text_source(
+    def add_url_source(self, url: str) -> SourceRecord:
+        with self._write_lock():
+            return self._add_url_source_unlocked(url)
+
+    def _add_text_source_unlocked(
         self,
         content: str,
         source_label: str,
@@ -185,17 +212,38 @@ class Indexer:
         }
         return self._index_documents(record, [document], meta)
 
+    def add_text_source(
+        self,
+        content: str,
+        source_label: str,
+        title: str | None = None,
+        source_kind: str | None = None,
+        original_ref: str | None = None,
+        notes: str | None = None,
+    ) -> SourceRecord:
+        with self._write_lock():
+            return self._add_text_source_unlocked(
+                content=content,
+                source_label=source_label,
+                title=title,
+                source_kind=source_kind,
+                original_ref=original_ref,
+                notes=notes,
+            )
+
     def refresh_source(self, source_id: str) -> SourceRecord:
-        record = self.registry.get(source_id)
-        if record is None:
-            raise KeyError(f"Unknown source_id: {source_id}")
-        if record.kind == "file":
-            return self.add_file_source(Path(record.original))
-        return self.add_url_source(record.original)
+        with self._write_lock():
+            record = self.registry.get(source_id)
+            if record is None:
+                raise KeyError(f"Unknown source_id: {source_id}")
+            if record.kind == "file":
+                return self._add_file_source_unlocked(Path(record.original))
+            return self._add_url_source_unlocked(record.original)
 
     def forget_source(self, source_id: str) -> None:
-        self._delete_source_chunks(source_id)
-        source_dir = self._source_dir(source_id)
-        if source_dir.exists():
-            shutil.rmtree(source_dir)
-        self.registry.delete(source_id)
+        with self._write_lock():
+            self._delete_source_chunks(source_id)
+            source_dir = self._source_dir(source_id)
+            if source_dir.exists():
+                shutil.rmtree(source_dir)
+            self.registry.delete(source_id)
