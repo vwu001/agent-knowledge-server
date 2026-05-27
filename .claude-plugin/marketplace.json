@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "agent-knowledge-server",
+  "description": "Curated agent knowledge server for coding agents",
+  "owner": {
+    "name": "Vincent Wu",
+    "email": "vwu@bambooinsurance.com"
+  },
+  "plugins": [
+    {
+      "name": "agent-knowledge-server",
+      "description": "Curated agent knowledge for coding agents — add files, URLs, and text, then search knowledge from any Claude Code session.",
+      "author": {
+        "name": "Vincent Wu"
+      },
+      "category": "productivity",
+      "source": "./",
+      "homepage": "https://github.com/vwu001/agent-knowledge-server"
+    }
+  ]
+}
