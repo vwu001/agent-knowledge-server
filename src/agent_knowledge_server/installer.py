@@ -5,6 +5,9 @@ from pathlib import Path
 import shutil
 import subprocess
 
+# Path to the canonical SKILL.md bundled with the package source.
+# Used when installing outside the plugin system (e.g. Codex, manual installs).
+_BUNDLED_SKILL = Path(__file__).parent.parent.parent / "skills" / "agent-knowledge-server" / "SKILL.md"
 
 SKILL_NAME = "agent-knowledge-server"
 SERVER_NAME = "agent-knowledge"
@@ -23,6 +26,10 @@ CLAUDE_ALLOWED_TOOLS = [
 
 
 def build_skill_text() -> str:
+    if _BUNDLED_SKILL.exists():
+        return _BUNDLED_SKILL.read_text(encoding="utf-8")
+    # Fallback for installs where the repo skills/ directory is unavailable
+    # (e.g. pip-installed without source). Keep in sync with skills/agent-knowledge-server/SKILL.md.
     return """---
 name: agent-knowledge-server
 description: Use when a user wants to save useful content to agent knowledge, search saved knowledge, or forget incorrect saved knowledge

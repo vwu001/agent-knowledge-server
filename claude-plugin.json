@@ -1,7 +1,10 @@
 {
   "name": "agent-knowledge-server",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Curated agent knowledge for coding agents",
+  "skills": [
+    "./skills/agent-knowledge-server"
+  ],
   "servers": {
     "agent-knowledge": {
       "type": "stdio",
