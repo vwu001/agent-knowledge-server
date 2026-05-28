@@ -5,7 +5,7 @@
   "skills": [
     "./skills/agent-knowledge-server"
   ],
-  "servers": {
+  "mcpServers": {
     "agent-knowledge": {
       "type": "stdio",
       "command": "agent-knowledge-server",
