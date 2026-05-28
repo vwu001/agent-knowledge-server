@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "agent-knowledge": {
+      "type": "stdio",
+      "command": "agent-knowledge-server",
+      "args": ["serve"]
+    }
+  }
+}
