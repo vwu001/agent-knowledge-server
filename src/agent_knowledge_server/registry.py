@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, datetime
 from hashlib import sha1
 import json
@@ -34,6 +34,8 @@ class SourceRecord:
     updated_at: str = field(default_factory=_utc_now)
     last_indexed_at: str = ""
     fingerprint: str = ""
+    file_fingerprint: str = ""
+    version: str = ""
     error: str = ""
     documents: list[DocumentSummary] = field(default_factory=list)
 
@@ -50,9 +52,10 @@ class SourceRegistry:
             return {}
         raw = json.loads(path.read_text() or "{}")
         items = {}
+        known = {f.name for f in fields(SourceRecord)}
         for source_id, data in raw.items():
             documents = [DocumentSummary(**doc) for doc in data.get("documents", [])]
-            data = {k: v for k, v in data.items() if k != "documents"}
+            data = {k: v for k, v in data.items() if k != "documents" and k in known}
             items[source_id] = SourceRecord(**data, documents=documents)
         return items
 
@@ -78,24 +81,42 @@ class SourceRegistry:
         self._save_all(items)
         return record
 
-    def upsert_file(self, path: Path) -> SourceRecord:
+    def upsert_file(self, path: Path, source_label: str | None = None) -> SourceRecord:
         original = str(path.expanduser().resolve())
         source_id = self._source_id("file", original)
         existing = self.get(source_id)
         if existing is not None:
             existing.original = original
+            if source_label:
+                existing.source_label = source_label
             existing.updated_at = _utc_now()
             return self.save(existing)
-        return self.save(SourceRecord(source_id=source_id, kind="file", original=original))
+        return self.save(
+            SourceRecord(
+                source_id=source_id,
+                kind="file",
+                original=original,
+                source_label=source_label or "",
+            )
+        )
 
-    def upsert_url(self, url: str) -> SourceRecord:
+    def upsert_url(self, url: str, source_label: str | None = None) -> SourceRecord:
         source_id = self._source_id("url", url)
         existing = self.get(source_id)
         if existing is not None:
             existing.original = url
+            if source_label:
+                existing.source_label = source_label
             existing.updated_at = _utc_now()
             return self.save(existing)
-        return self.save(SourceRecord(source_id=source_id, kind="url", original=url))
+        return self.save(
+            SourceRecord(
+                source_id=source_id,
+                kind="url",
+                original=url,
+                source_label=source_label or "",
+            )
+        )
 
     def upsert_text(self, source_label: str, original_ref: str | None = None) -> SourceRecord:
         original = original_ref or source_label

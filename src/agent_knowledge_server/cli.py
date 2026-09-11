@@ -24,13 +24,42 @@ app = typer.Typer(help="agent-knowledge-server - agent knowledge indexing for ex
 def add(
     file: str | None = typer.Option(None, "--file", help="Single local file to index"),
     url: str | None = typer.Option(None, "--url", help="Single URL to fetch and index"),
+    source_label: str | None = typer.Option(
+        None, "--source-label", help="Human-readable label (recommended for URLs)"
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Index even if the extracted text looks empty or is a JS shell"
+    ),
 ):
     cfg = load_config()
-    text = handle_add({"file_path": file, "url": url}, cfg)
-    if text.startswith("Provide exactly one"):
+    text = handle_add(
+        {"file_path": file, "url": url, "source_label": source_label, "force": force}, cfg
+    )
+    if text.startswith("Provide exactly one") or text.startswith("Refused to index"):
         typer.echo(text, err=True)
         raise typer.Exit(1)
     typer.echo(text)
+
+
+@app.command("sync")
+def sync(
+    directory: str = typer.Argument(..., help="Folder to reconcile against the index"),
+    pattern: str = typer.Option("*.pdf", "--pattern", help="Glob for files to consider"),
+    reindex_unknown: bool = typer.Option(
+        False,
+        "--reindex-unknown",
+        help="Re-index sources that predate file fingerprints instead of backfilling",
+    ),
+):
+    """Add new files, re-index changed ones, and report indexed files that vanished."""
+    from agent_knowledge_server.server import handle_sync_folder
+
+    typer.echo(
+        handle_sync_folder(
+            {"dir": directory, "pattern": pattern, "reindex_unknown": reindex_unknown},
+            load_config(),
+        )
+    )
 
 
 @app.command("add-text")

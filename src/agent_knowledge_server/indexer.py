@@ -15,6 +15,7 @@ from sentence_transformers import SentenceTransformer
 from agent_knowledge_server.config import AgentKnowledgeConfig
 from agent_knowledge_server.loaders import NormalizedDocument, load_file_documents, load_url_documents
 from agent_knowledge_server.registry import DocumentSummary, SourceRecord, SourceRegistry
+from agent_knowledge_server.validation import EmptyExtractionError, assess_extraction, detect_version
 
 
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
@@ -32,6 +33,15 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]
             break
         start += chunk_size - overlap
     return chunks
+
+
+def file_fingerprint(path: Path) -> str:
+    """Hash of a file's bytes, used by sync to detect changes without re-parsing."""
+    digest = sha1()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 class Indexer:
@@ -107,12 +117,14 @@ class Indexer:
                         "title": document.title,
                         "page": document.metadata.get("page", 0),
                         "section_path": document.metadata.get("section_path", ""),
+                        "version": meta.get("version", "") or record.version or "",
                     }
                 )
 
         if ids:
             collection.upsert(ids=ids, embeddings=embeddings, documents=chunks, metadatas=metadatas)
 
+        record.version = meta.get("version", "") or record.version
         record.content_type = meta.get("content_type", record.content_type)
         record.title = meta.get("title", record.title) or record.original
         record.source_label = meta.get("source_label", record.source_label) or record.title
@@ -121,6 +133,8 @@ class Indexer:
         record.updated_at = record.last_indexed_at
         record.error = ""
         record.fingerprint = sha1("".join(doc.content for doc in documents).encode("utf-8")).hexdigest()
+        if "file_fingerprint" in meta:
+            record.file_fingerprint = meta["file_fingerprint"]
         record.documents = [
             DocumentSummary(
                 document_id=doc.document_id,
@@ -132,23 +146,55 @@ class Indexer:
         ]
         return self.registry.save(record)
 
-    def _add_file_source_unlocked(self, path: Path) -> SourceRecord:
+    def _add_file_source_unlocked(
+        self,
+        path: Path,
+        source_label: str | None = None,
+        force: bool = False,
+    ) -> SourceRecord:
         path = Path(path).expanduser()
         if path.is_dir():
             raise ValueError(f"Folder paths are not supported: {path}")
-        record = self.registry.upsert_file(path)
+        record = self.registry.upsert_file(path, source_label=source_label)
         try:
             documents, meta = load_file_documents(path)
+            self._guard_extraction(record, documents, origin=str(path), force=force, min_chars=0)
+            meta = dict(meta)
+            meta.setdefault("version", detect_version(documents))
+            meta["file_fingerprint"] = file_fingerprint(path)
+            if source_label:
+                meta["source_label"] = source_label
             return self._index_documents(record, documents, meta)
         except Exception as exc:
-            record.status = "failed"
+            record.status = "empty" if isinstance(exc, EmptyExtractionError) else "failed"
             record.error = str(exc)
             self.registry.save(record)
             raise
 
-    def add_file_source(self, path: Path) -> SourceRecord:
+    def _guard_extraction(
+        self,
+        record: SourceRecord,
+        documents,
+        origin: str,
+        force: bool,
+        min_chars: int | None = None,
+    ) -> None:
+        """Refuse to record an empty extraction as a successful index."""
+        if force:
+            return
+        kwargs = {} if min_chars is None else {"min_chars": min_chars}
+        problem = assess_extraction(documents, origin=origin, **kwargs)
+        if problem:
+            raise EmptyExtractionError(problem)
+
+    def add_file_source(
+        self,
+        path: Path,
+        source_label: str | None = None,
+        force: bool = False,
+    ) -> SourceRecord:
         with self._write_lock():
-            return self._add_file_source_unlocked(path)
+            return self._add_file_source_unlocked(path, source_label=source_label, force=force)
 
     def _import_pdf_folder_unlocked(self, folder: Path, pattern: str = "*.pdf") -> list[SourceRecord]:
         folder = Path(folder).expanduser()
@@ -167,20 +213,35 @@ class Indexer:
         with self._write_lock():
             return self._import_pdf_folder_unlocked(folder, pattern=pattern)
 
-    def _add_url_source_unlocked(self, url: str) -> SourceRecord:
-        record = self.registry.upsert_url(url)
+    def _add_url_source_unlocked(
+        self,
+        url: str,
+        source_label: str | None = None,
+        force: bool = False,
+    ) -> SourceRecord:
+        record = self.registry.upsert_url(url, source_label=source_label)
         try:
             documents, meta = load_url_documents(url, self._source_dir(record.source_id))
+            self._guard_extraction(record, documents, origin=url, force=force)
+            meta = dict(meta)
+            meta.setdefault("version", detect_version(documents))
+            if source_label:
+                meta["source_label"] = source_label
             return self._index_documents(record, documents, meta)
         except Exception as exc:
-            record.status = "failed"
+            record.status = "empty" if isinstance(exc, EmptyExtractionError) else "failed"
             record.error = str(exc)
             self.registry.save(record)
             raise
 
-    def add_url_source(self, url: str) -> SourceRecord:
+    def add_url_source(
+        self,
+        url: str,
+        source_label: str | None = None,
+        force: bool = False,
+    ) -> SourceRecord:
         with self._write_lock():
-            return self._add_url_source_unlocked(url)
+            return self._add_url_source_unlocked(url, source_label=source_label, force=force)
 
     def _add_text_source_unlocked(
         self,
@@ -230,6 +291,80 @@ class Indexer:
                 original_ref=original_ref,
                 notes=notes,
             )
+
+    def sync_folder(
+        self,
+        folder: Path,
+        pattern: str = "*.pdf",
+        reindex_unknown: bool = False,
+    ) -> dict[str, list[str]]:
+        """Reconcile a directory against the index.
+
+        Returns lists keyed by outcome:
+          added      - file present on disk, not in the registry; now indexed
+          updated    - file bytes changed since last index; re-indexed
+          unchanged  - byte fingerprint matches the registry
+          backfilled - indexed before fingerprints existed; fingerprint recorded,
+                       content left alone (pass reindex_unknown to re-index instead)
+          missing    - registry has a file source whose path no longer exists
+          failed     - indexing raised; see the registry entry's error
+        """
+        folder = Path(folder).expanduser()
+        if not folder.exists():
+            raise FileNotFoundError(f"Folder not found: {folder}")
+        if not folder.is_dir():
+            raise ValueError(f"Not a folder: {folder}")
+
+        report: dict[str, list[str]] = {
+            "added": [],
+            "updated": [],
+            "unchanged": [],
+            "backfilled": [],
+            "missing": [],
+            "failed": [],
+        }
+
+        with self._write_lock():
+            on_disk = sorted(p for p in folder.glob(pattern) if p.is_file())
+            seen_ids: set[str] = set()
+
+            for path in on_disk:
+                resolved = str(path.expanduser().resolve())
+                source_id = self.registry._source_id("file", resolved)
+                seen_ids.add(source_id)
+                existing = self.registry.get(source_id)
+                name = path.name
+                try:
+                    if existing is None or existing.status != "indexed":
+                        self._add_file_source_unlocked(path)
+                        report["added"].append(name)
+                        continue
+                    current = file_fingerprint(path)
+                    if not existing.file_fingerprint:
+                        # Indexed before byte fingerprints were recorded. Record one
+                        # rather than re-parsing an unchanged corpus.
+                        if reindex_unknown:
+                            self._add_file_source_unlocked(path)
+                            report["updated"].append(name)
+                        else:
+                            existing.file_fingerprint = current
+                            self.registry.save(existing)
+                            report["backfilled"].append(name)
+                    elif existing.file_fingerprint != current:
+                        self._add_file_source_unlocked(path)
+                        report["updated"].append(name)
+                    else:
+                        report["unchanged"].append(name)
+                except Exception as exc:  # keep going; the registry records the error
+                    report["failed"].append(f"{name}: {exc}")
+
+            for record in self.registry.list_sources():
+                if record.kind != "file" or record.source_id in seen_ids:
+                    continue
+                if not Path(record.original).exists():
+                    report["missing"].append(f"{record.source_label or record.title} ({record.source_id})")
+
+        return report
 
     def refresh_source(self, source_id: str) -> SourceRecord:
         with self._write_lock():
