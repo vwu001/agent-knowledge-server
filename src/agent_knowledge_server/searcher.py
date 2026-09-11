@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import chromadb
 from chromadb.config import Settings
@@ -9,6 +9,7 @@ from sentence_transformers import SentenceTransformer
 
 from agent_knowledge_server.config import AgentKnowledgeConfig
 from agent_knowledge_server.registry import SourceRecord, SourceRegistry
+from agent_knowledge_server.validation import normalize_for_dedupe
 
 
 @dataclass
@@ -19,6 +20,8 @@ class SearchResult:
     original: str
     page: int
     score: float
+    version: str = ""
+    duplicate_sources: list[str] = field(default_factory=list)
 
 
 class Searcher:
@@ -45,28 +48,47 @@ class Searcher:
         except NotFoundError:
             return None
 
-    def search(self, query: str, top_k: int | None = None) -> list[SearchResult]:
+    def search(self, query: str, top_k: int | None = None, dedupe: bool = True) -> list[SearchResult]:
         k = top_k if top_k is not None else self.cfg.search.top_k
         collection = self._get_collection()
         if collection is None:
             return []
-        if collection.count() == 0:
+        count = collection.count()
+        if count == 0:
             return []
         model = self._get_model()
         query_vec = model.encode([query], show_progress_bar=False)[0].tolist()
-        raw = collection.query(query_embeddings=[query_vec], n_results=min(k, collection.count()))
+
+        # Over-fetch so suppressing duplicates still returns k distinct passages.
+        fetch = min(k * 3, count) if dedupe else min(k, count)
+        raw = collection.query(query_embeddings=[query_vec], n_results=fetch)
+
         results: list[SearchResult] = []
+        by_text: dict[str, SearchResult] = {}
         for text, meta, distance in zip(raw["documents"][0], raw["metadatas"][0], raw["distances"][0]):
-            results.append(
-                SearchResult(
-                    text=text,
-                    source_id=meta["source_id"],
-                    title=meta["source_title"],
-                    original=meta["original"],
-                    page=int(meta.get("page", 0)),
-                    score=round(1.0 - distance, 4),
-                )
+            result = SearchResult(
+                text=text,
+                source_id=meta["source_id"],
+                title=meta["source_title"],
+                original=meta["original"],
+                page=int(meta.get("page", 0)),
+                score=round(1.0 - distance, 4),
+                version=str(meta.get("version", "") or ""),
             )
+            if dedupe:
+                key = normalize_for_dedupe(text)
+                seen = by_text.get(key)
+                if seen is not None:
+                    # Same passage from another source (e.g. two releases of one
+                    # guide). Keep the best-scoring copy and note where else it lives.
+                    label = f"{result.title} p.{result.page}" if result.page else result.title
+                    if label not in seen.duplicate_sources:
+                        seen.duplicate_sources.append(label)
+                    continue
+                by_text[key] = result
+            results.append(result)
+            if len(results) >= k:
+                break
         return results
 
     def list_sources(self) -> list[SourceRecord]:

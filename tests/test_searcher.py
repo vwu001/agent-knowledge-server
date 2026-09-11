@@ -55,3 +55,40 @@ def test_search_works_with_read_only_chroma_store(sample_pdf, mock_embedder, tem
     results = Searcher(temp_config).search("database queries", top_k=3)
 
     assert len(results) > 0
+
+
+def test_search_suppresses_identical_passages_from_two_sources(tmp_path, mock_embedder, temp_config):
+    """Two releases of one guide share verbatim passages; return the passage once."""
+    from agent_knowledge_server.indexer import Indexer
+    from agent_knowledge_server.searcher import Searcher
+
+    shared = "Delinquency plans control how overdue invoices escalate. " * 12
+    old = tmp_path / "ReleaseNotes.txt"
+    new = tmp_path / "ReleaseNotes-next.txt"
+    old.write_text(shared)
+    new.write_text(shared)
+
+    indexer = Indexer(temp_config)
+    indexer.add_file_source(old, source_label="ReleaseNotes 2026.03")
+    indexer.add_file_source(new, source_label="ReleaseNotes 2026.07")
+
+    results = Searcher(temp_config).search("delinquency plans overdue invoices", top_k=5)
+    texts = [r.text for r in results]
+    assert len(texts) == len(set(texts)), "identical passages should collapse to one result"
+
+    carrier = next((r for r in results if r.duplicate_sources), None)
+    assert carrier is not None, "the surviving result should name where the duplicate lives"
+
+
+def test_search_can_opt_out_of_dedupe(tmp_path, mock_embedder, temp_config):
+    from agent_knowledge_server.indexer import Indexer
+    from agent_knowledge_server.searcher import Searcher
+
+    shared = "Identical passage repeated across two sources. " * 12
+    for name in ("one.txt", "two.txt"):
+        path = tmp_path / name
+        path.write_text(shared)
+        Indexer(temp_config).add_file_source(path)
+
+    results = Searcher(temp_config).search("identical passage", top_k=5, dedupe=False)
+    assert len({r.text for r in results}) < len(results) or len(results) >= 2

@@ -11,6 +11,7 @@ from mcp.types import TextContent, Tool
 from agent_knowledge_server.config import AgentKnowledgeConfig, load_config
 from agent_knowledge_server.indexer import Indexer
 from agent_knowledge_server.searcher import Searcher
+from agent_knowledge_server.validation import EmptyExtractionError
 
 _server = Server("agent-knowledge")
 
@@ -19,13 +20,44 @@ def handle_add(arguments: dict[str, Any], cfg: AgentKnowledgeConfig) -> str:
     indexer = Indexer(cfg)
     file_path = arguments.get("file_path")
     url = arguments.get("url")
+    source_label = (arguments.get("source_label") or "").strip() or None
+    force = bool(arguments.get("force"))
     if bool(file_path) == bool(url):
         return "Provide exactly one of file_path or url."
-    if file_path:
-        source = indexer.add_file_source(Path(file_path))
-    else:
-        source = indexer.add_url_source(url)
-    return f"Indexed source '{source.title or source.original}' with source_id={source.source_id}"
+    try:
+        if file_path:
+            source = indexer.add_file_source(Path(file_path), source_label=source_label, force=force)
+        else:
+            source = indexer.add_url_source(url, source_label=source_label, force=force)
+    except EmptyExtractionError as exc:
+        return f"Refused to index: {exc}"
+    label = source.source_label or source.title or source.original
+    version = f" [{source.version}]" if source.version else ""
+    return f"Indexed source '{label}'{version} with source_id={source.source_id}"
+
+
+def handle_sync_folder(arguments: dict[str, Any], cfg: AgentKnowledgeConfig) -> str:
+    folder = arguments.get("dir")
+    if not folder:
+        return "Provide dir to sync."
+    report = Indexer(cfg).sync_folder(
+        Path(folder),
+        pattern=arguments.get("pattern", "*.pdf"),
+        reindex_unknown=bool(arguments.get("reindex_unknown")),
+    )
+    lines = [f"Synced {folder}"]
+    for key in ("added", "updated", "backfilled", "unchanged", "missing", "failed"):
+        entries = report.get(key) or []
+        if not entries:
+            continue
+        if key == "unchanged":
+            lines.append(f"  unchanged: {len(entries)}")
+            continue
+        lines.append(f"  {key} ({len(entries)}):")
+        lines.extend(f"    - {item}" for item in entries)
+    if len(lines) == 1:
+        lines.append("  nothing to do")
+    return "\n".join(lines)
 
 
 def handle_add_text_source(arguments: dict[str, Any], cfg: AgentKnowledgeConfig) -> str:
@@ -59,11 +91,14 @@ def handle_list_sources(arguments: dict[str, Any], cfg: AgentKnowledgeConfig) ->
     sources = Searcher(cfg).list_sources()
     if not sources:
         return "No sources indexed yet."
-    lines = [f"{'Source ID':<18} {'Kind':<6} {'Status':<8} Label"]
-    lines.append("-" * 72)
+    lines = [f"{'Source ID':<18} {'Kind':<6} {'Status':<8} {'Version':<10} Label"]
+    lines.append("-" * 86)
     for source in sources:
         label = source.source_label or source.title or source.original
-        lines.append(f"{source.source_id:<18} {source.kind:<6} {source.status:<8} {label}")
+        if source.status != "indexed" and source.error:
+            label = f"{label}  !! {source.error}"
+        version = source.version or "-"
+        lines.append(f"{source.source_id:<18} {source.kind:<6} {source.status:<8} {version:<10} {label}")
     return "\n".join(lines)
 
 
@@ -87,7 +122,10 @@ def handle_search(arguments: dict[str, Any], cfg: AgentKnowledgeConfig) -> str:
     lines = []
     for idx, result in enumerate(results, 1):
         page = f" p.{result.page}" if result.page else ""
-        lines.append(f"[{idx}] {result.title}{page} (score: {result.score})")
+        version = f" [{result.version}]" if result.version else ""
+        lines.append(f"[{idx}] {result.title}{page}{version} (score: {result.score})")
+        if result.duplicate_sources:
+            lines.append(f"    (identical passage also in: {', '.join(result.duplicate_sources)})")
         lines.append(result.text)
         lines.append("")
     return "\n".join(lines).strip()
@@ -129,13 +167,46 @@ async def list_tools() -> list[Tool]:
     return [
         Tool(
             name="add_source",
-            description="Add and index one local file path or one URL.",
+            description=(
+                "Add and index one local file path or one URL. Refuses content that "
+                "extracts to nothing (e.g. a JavaScript-rendered page fetched without a "
+                "browser) unless force=true."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "file_path": {"type": "string"},
                     "url": {"type": "string"},
+                    "source_label": {
+                        "type": "string",
+                        "description": "Human-readable label. Strongly recommended for URLs: "
+                        "without it the label falls back to the page <title>, which is often "
+                        "identical across a whole documentation site.",
+                    },
+                    "force": {
+                        "type": "boolean",
+                        "description": "Index even if the extracted text looks empty or is a JS shell.",
+                    },
                 },
+            },
+        ),
+        Tool(
+            name="sync_folder",
+            description=(
+                "Reconcile a folder against the index: add new files, re-index changed "
+                "ones (by file fingerprint), and report indexed files that no longer exist."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "dir": {"type": "string"},
+                    "pattern": {"type": "string", "description": "Glob, default *.pdf"},
+                    "reindex_unknown": {
+                        "type": "boolean",
+                        "description": "Re-index sources predating fingerprints instead of backfilling.",
+                    },
+                },
+                "required": ["dir"],
             },
         ),
         Tool(
@@ -234,6 +305,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         text = handle_add_text_source(arguments, cfg)
     elif name == "import_pdf_folder":
         text = handle_import_pdf_folder(arguments, cfg)
+    elif name == "sync_folder":
+        text = handle_sync_folder(arguments, cfg)
     elif name == "list_sources":
         text = handle_list_sources(arguments, cfg)
     elif name == "list_documents":
