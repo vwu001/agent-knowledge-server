@@ -107,3 +107,26 @@ def test_mutating_operations_are_serialized_across_indexers(mock_embedder, temp_
 
     assert len(results) == 2
     assert max_active_writers == 1
+
+
+def test_file_source_version_precedence(tmp_path, temp_config, mock_embedder):
+    """Footer beats filename beats the assumed default."""
+    from agent_knowledge_server.indexer import Indexer
+    from agent_knowledge_server.validation import DEFAULT_UNKNOWN_VERSION
+
+    indexer = Indexer(temp_config)
+
+    # 1. Own footer wins, even when the filename names a different release.
+    footer = tmp_path / "SomeGuide-palisades.md"
+    footer.write_text("Guidewire 2026.07.0 page one\n" * 10)
+    assert indexer.add_file_source(footer).version == "2026.07.0"
+
+    # 2. No footer -> filename codename.
+    named = tmp_path / "ContactMgmtGuide-qusar.md"
+    named.write_text("this guide never prints its release\n" * 10)
+    assert indexer.add_file_source(named).version == "2026.07.0"
+
+    # 3. Neither -> assumed default.
+    bare = tmp_path / "GosuRefGuide.md"
+    bare.write_text("no release anywhere in this text\n" * 10)
+    assert indexer.add_file_source(bare).version == DEFAULT_UNKNOWN_VERSION

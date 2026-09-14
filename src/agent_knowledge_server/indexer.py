@@ -19,6 +19,7 @@ from agent_knowledge_server.config import AgentKnowledgeConfig
 from agent_knowledge_server.loaders import NormalizedDocument, load_file_documents, load_url_documents
 from agent_knowledge_server.registry import DocumentSummary, SourceRecord, SourceRegistry
 from agent_knowledge_server.validation import (
+    DEFAULT_UNKNOWN_VERSION,
     EmptyExtractionError,
     assess_extraction,
     detect_version,
@@ -181,10 +182,14 @@ class Indexer:
             documents, meta = load_file_documents(path)
             self._guard_extraction(record, documents, origin=str(path), force=force, min_chars=0)
             meta = dict(meta)
-            # Prefer the release the document stamps on itself; fall back to a
-            # codename in the filename for guides that never print one.
+            # Prefer the release the document stamps on itself, then a codename in
+            # the filename for guides that never print one, then the assumed default.
             meta.setdefault(
-                "version", detect_version(documents, fallback=version_from_filename(path.name))
+                "version",
+                detect_version(
+                    documents,
+                    fallback=version_from_filename(path.name) or DEFAULT_UNKNOWN_VERSION,
+                ),
             )
             meta["file_fingerprint"] = file_fingerprint(path)
             if source_label:

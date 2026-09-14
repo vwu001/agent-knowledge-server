@@ -56,6 +56,14 @@ _RELEASE_CODENAMES = {
 }
 
 
+# Release assumed for documents that neither stamp a release footer nor carry a
+# codename in the filename. This is an assumption, not a detection: many Guidewire
+# guides are not re-stamped every release, and across the indexed set the undated
+# guides sit alongside detected Olos-era ones. Change this one value after a docs
+# refresh moves the bulk of the library forward.
+DEFAULT_UNKNOWN_VERSION = "2025.11.0"  # Olos
+
+
 def version_from_filename(name: str) -> str:
     """Release version implied by a codename in a filename, or "".
 
