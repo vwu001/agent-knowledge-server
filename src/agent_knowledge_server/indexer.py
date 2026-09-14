@@ -18,7 +18,12 @@ if TYPE_CHECKING:
 from agent_knowledge_server.config import AgentKnowledgeConfig
 from agent_knowledge_server.loaders import NormalizedDocument, load_file_documents, load_url_documents
 from agent_knowledge_server.registry import DocumentSummary, SourceRecord, SourceRegistry
-from agent_knowledge_server.validation import EmptyExtractionError, assess_extraction, detect_version
+from agent_knowledge_server.validation import (
+    EmptyExtractionError,
+    assess_extraction,
+    detect_version,
+    version_from_filename,
+)
 
 
 def _sentence_transformer_cls() -> type[SentenceTransformer]:
@@ -176,7 +181,11 @@ class Indexer:
             documents, meta = load_file_documents(path)
             self._guard_extraction(record, documents, origin=str(path), force=force, min_chars=0)
             meta = dict(meta)
-            meta.setdefault("version", detect_version(documents))
+            # Prefer the release the document stamps on itself; fall back to a
+            # codename in the filename for guides that never print one.
+            meta.setdefault(
+                "version", detect_version(documents, fallback=version_from_filename(path.name))
+            )
             meta["file_fingerprint"] = file_fingerprint(path)
             if source_label:
                 meta["source_label"] = source_label

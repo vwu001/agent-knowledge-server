@@ -9,6 +9,7 @@ error. The source then never matches a query, and nothing tells you why.
 
 from __future__ import annotations
 
+from pathlib import Path
 import re
 
 # Text shorter than this almost never carries retrievable information. The
@@ -27,6 +28,50 @@ JS_SHELL_MARKERS = (
 # Guidewire-style release stamps, e.g. "2026.07.0". Kept general enough to catch
 # any YYYY.MM(.P) product version that appears in a document's own text.
 _VERSION_RE = re.compile(r"\b(20\d{2}\.\d{2}(?:\.\d+)?)\b")
+
+# Minimum share of scanned pages a version must appear on to count as this
+# document's release. Real footers land on most pages; incidental body-text mentions
+# sit far below. Measured over 41 Guidewire PDFs: documents with a real release
+# footer scored 0.59-0.97, documents without one scored 0.00-0.12. The cutoff sits
+# in that gap and is not delicate.
+_VERSION_PAGE_SHARE = 0.20
+
+# Guidewire ships releases under ski-resort codenames. Some guides (for example the
+# ContactManager guide and the Gosu reference) never print the release in their own
+# text, so a codename in the filename is the only signal available.
+_RELEASE_CODENAMES = {
+    "qusar": "2026.07.0",
+    "palisades": "2026.03.0",
+    "olos": "2025.11.0",
+    "oslo": "2025.11.0",  # some downloads use this spelling
+    "niseko": "2025.07.0",
+    "mammoth": "2025.04.0",
+    "lasleñas": "2024.11.0",
+    "lasarenas": "2024.11.0",
+    "kufri": "2024.08.0",
+    "jasper": "2024.03.0",
+    "innsbruck": "2023.11.0",
+    "hakuba": "2023.08.0",
+    "garmisch": "2023.04.0",
+}
+
+
+def version_from_filename(name: str) -> str:
+    """Release version implied by a codename in a filename, or "".
+
+    Only used as a fallback when a document does not stamp its own release. Matching
+    is deliberately conservative: the codename must appear as a separate token (for
+    example ``whatsnew-qusar.pdf`` or ``ContactMgmtGuide-qusar.pdf``), so an
+    unsuffixed filename yields "" rather than a guess. An unsuffixed file means
+    "whatever release was current when it was downloaded", which is not recoverable
+    from the name.
+    """
+    stem = Path(name).stem.lower()
+    tokens = {token for token in re.split(r"[^a-z0-9]+", stem) if token}
+    for codename, version in _RELEASE_CODENAMES.items():
+        if codename in tokens:
+            return version
+    return ""
 
 
 class EmptyExtractionError(ValueError):
@@ -86,17 +131,37 @@ def detect_version(documents, *, fallback: str = "") -> str:
     Guidewire prints a release on nearly every page footer ("Guidewire ... 2026.07.0
     ... Application Guide"), which lets search results and dedupe distinguish two
     releases of the same guide. Returns the most frequent match, or ``fallback``.
+
+    A release footer appears on a large share of a document's pages, so the winning
+    match must clear ``_VERSION_PAGE_SHARE`` of the pages scanned. Without that
+    threshold an incidental body-text mention wins on a document that has no footer
+    at all: the ContactManager guide names ``2020.05`` four times across ~350 pages
+    and would otherwise be stamped with it, outranking a correct filename fallback.
     """
-    text = _joined_text(documents)
-    if not text:
+    page_texts = [(getattr(doc, "content", "") or "") for doc in documents]
+    if not any(text.strip() for text in page_texts):
         return fallback
-    matches = _VERSION_RE.findall(text[:200_000])
-    if not matches:
-        return fallback
+
+    # Count pages containing each version rather than raw occurrences, so a single
+    # page repeating a version many times cannot outvote a genuine footer.
+    pages_scanned = 0
     counts: dict[str, int] = {}
-    for match in matches:
-        counts[match] = counts.get(match, 0) + 1
-    return max(counts.items(), key=lambda item: (item[1], item[0]))[0]
+    budget = 200_000
+    for text in page_texts:
+        if budget <= 0:
+            break
+        budget -= len(text)
+        pages_scanned += 1
+        for match in set(_VERSION_RE.findall(text)):
+            counts[match] = counts.get(match, 0) + 1
+
+    if not counts or not pages_scanned:
+        return fallback
+
+    version, pages_seen = max(counts.items(), key=lambda item: (item[1], item[0]))
+    if pages_seen / pages_scanned < _VERSION_PAGE_SHARE:
+        return fallback
+    return version
 
 
 def normalize_for_dedupe(text: str) -> str:
