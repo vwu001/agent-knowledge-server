@@ -57,8 +57,14 @@ def mock_embedder(monkeypatch):
     mock = MagicMock()
     mock.encode.side_effect = fake_encode
 
-    monkeypatch.setattr("agent_knowledge_server.indexer.SentenceTransformer", lambda name, **kw: mock)
-    monkeypatch.setattr("agent_knowledge_server.searcher.SentenceTransformer", lambda name, **kw: mock)
+    def fake_cls(name, **kw):
+        return mock
+
+    # SentenceTransformer is imported lazily inside _sentence_transformer_cls() so that
+    # torch stays off the MCP server's startup path; patch that seam rather than a
+    # module-level attribute.
+    monkeypatch.setattr("agent_knowledge_server.indexer._sentence_transformer_cls", lambda: fake_cls)
+    monkeypatch.setattr("agent_knowledge_server.searcher._sentence_transformer_cls", lambda: fake_cls)
     return mock
 
 

@@ -7,15 +7,31 @@ import fcntl
 from hashlib import sha1
 from pathlib import Path
 import shutil
+from typing import TYPE_CHECKING
 
 import chromadb
 from chromadb.config import Settings
-from sentence_transformers import SentenceTransformer
+
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
 
 from agent_knowledge_server.config import AgentKnowledgeConfig
 from agent_knowledge_server.loaders import NormalizedDocument, load_file_documents, load_url_documents
 from agent_knowledge_server.registry import DocumentSummary, SourceRecord, SourceRegistry
 from agent_knowledge_server.validation import EmptyExtractionError, assess_extraction, detect_version
+
+
+def _sentence_transformer_cls() -> type[SentenceTransformer]:
+    """Import SentenceTransformer on first use.
+
+    sentence_transformers pulls in torch/transformers, which costs ~4s warm and far
+    more with a cold page cache. At module scope that cost lands on every MCP server
+    start, before the stdio handshake completes, and trips the client's connect
+    timeout. Tests patch this function to avoid loading the real model.
+    """
+    from sentence_transformers import SentenceTransformer
+
+    return SentenceTransformer
 
 
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
@@ -52,7 +68,7 @@ class Indexer:
 
     def _get_model(self) -> SentenceTransformer:
         if self._model is None:
-            self._model = SentenceTransformer(
+            self._model = _sentence_transformer_cls()(
                 self.cfg.model.name,
                 cache_folder=self.cfg.model.cache_dir,
             )
