@@ -1,108 +1,67 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
-# Path to the canonical SKILL.md bundled with the package source.
-# Used when installing outside the plugin system (e.g. Codex, manual installs).
-_BUNDLED_SKILL = Path(__file__).parent.parent.parent / "skills" / "agent-knowledge-server" / "SKILL.md"
+from agent_knowledge_server.tools import TOOL_NAMES
 
 SKILL_NAME = "agent-knowledge-server"
 SERVER_NAME = "agent-knowledge"
 CODEX_SERVER_HEADER = f"[mcp_servers.{SERVER_NAME}]"
-CLAUDE_ALLOWED_TOOLS = [
-    "mcp__agent-knowledge__add_source",
-    "mcp__agent-knowledge__add_text_source",
-    "mcp__agent-knowledge__add_text_source_from_context",
-    "mcp__agent-knowledge__import_pdf_folder",
-    "mcp__agent-knowledge__list_sources",
-    "mcp__agent-knowledge__list_documents",
-    "mcp__agent-knowledge__search_knowledge",
-    "mcp__agent-knowledge__refresh_source",
-    "mcp__agent-knowledge__forget_source",
-]
+REPO_URL = "https://github.com/vwu001/agent-knowledge-server.git"
+
+# Derived from the server's own tool list so a new tool is pre-approved rather
+# than prompting on every call.
+CLAUDE_ALLOWED_TOOLS = [f"mcp__{SERVER_NAME}__{name}" for name in TOOL_NAMES]
+
+# Where SKILL.md lives, in preference order: bundled inside the installed wheel,
+# then the repo checkout (editable installs and test runs). There is deliberately
+# no inline copy -- a second copy of the skill text drifts from the real one.
+_SKILL_CANDIDATES = (
+    Path(__file__).parent / "_skills" / SKILL_NAME / "SKILL.md",
+    Path(__file__).resolve().parents[2] / "skills" / SKILL_NAME / "SKILL.md",
+)
+
+
+def bundled_skill_path() -> Path:
+    for candidate in _SKILL_CANDIDATES:
+        if candidate.exists():
+            return candidate
+    searched = ", ".join(str(candidate) for candidate in _SKILL_CANDIDATES)
+    raise FileNotFoundError(f"Could not locate the bundled SKILL.md. Searched: {searched}")
 
 
 def build_skill_text() -> str:
-    if _BUNDLED_SKILL.exists():
-        return _BUNDLED_SKILL.read_text(encoding="utf-8")
-    # Fallback for installs where the repo skills/ directory is unavailable
-    # (e.g. pip-installed without source). Keep in sync with skills/agent-knowledge-server/SKILL.md.
-    return """---
-name: agent-knowledge-server
-description: Use when a user wants to save useful content to agent knowledge, search saved knowledge, or forget incorrect saved knowledge
----
+    return bundled_skill_path().read_text(encoding="utf-8")
 
-# agent-knowledge-server
 
-Use this skill when the user wants to interact with the agent knowledge MCP.
+def is_uv_tool_install() -> bool:
+    """True when this package was installed via `uv tool install`.
 
-## Setup
+    uv tool environments live under the uv tools dir and have no usable pip, so
+    `pip install --upgrade` fails there.
+    """
+    marker = f"{os.sep}uv{os.sep}tools{os.sep}"
+    return marker in str(Path(sys.prefix).resolve()) or (Path(sys.prefix) / "uv-receipt.toml").exists()
 
-- Install or refresh the skill and MCP registration with `agent-knowledge-server install`.
-- After installation, start a new assistant session before relying on the MCP tools.
-- The installer is expected to write the MCP config and Claude permissions for you.
-- If Codex or Claude can see this skill but the MCP tools are missing or still prompting too much, inspect the local MCP config before doing knowledge work.
 
-### Codex Setup
+def upgrade_command() -> list[str]:
+    if is_uv_tool_install():
+        return ["uv", "tool", "upgrade", "agent-knowledge-server"]
+    # Not published to PyPI -- upgrade from the git remote the README installs from.
+    return [sys.executable, "-m", "pip", "install", "--upgrade", "-q", f"git+{REPO_URL}"]
 
-- Codex uses `~/.codex/config.toml`, not `settings.json`, for MCP registration and approval defaults.
-- `agent-knowledge-server install` should ensure `~/.codex/config.toml` contains:
 
-```toml
-[mcp_servers.agent-knowledge]
-command = "agent-knowledge-server"
-args = ["serve"]
-default_tools_approval_mode = "approve"
-```
-
-- If you prefer tighter control, keep `default_tools_approval_mode = "prompt"` and set per-tool approval overrides instead.
-
-### Claude Setup
-
-- `agent-knowledge-server install` should register the Claude MCP server and update `~/.claude/settings.json`.
-- The `permissions.allow` array should include:
-
-```json
-[
-  "mcp__agent-knowledge__add_source",
-  "mcp__agent-knowledge__add_text_source",
-  "mcp__agent-knowledge__add_text_source_from_context",
-  "mcp__agent-knowledge__import_pdf_folder",
-  "mcp__agent-knowledge__list_sources",
-  "mcp__agent-knowledge__list_documents",
-  "mcp__agent-knowledge__search_knowledge",
-  "mcp__agent-knowledge__refresh_source",
-  "mcp__agent-knowledge__forget_source"
-]
-```
-
-## Save Knowledge
-
-- If the user wants to save useful knowledge from accessible content, normalize the content first.
-- Prefer `add_text_source` for LLM-derived content provided by the user.
-- Prefer `add_text_source_from_context` when the content is derived from the current assistant conversation context.
-- Prefer `add_source` for a single explicit file path or URL.
-- Prefer `import_pdf_folder` for a curated folder of PDFs that should become individual sources.
-- Include a human-readable `source_label` whenever possible.
-
-## Search Knowledge
-
-- Use `search_knowledge` to find previously saved information.
-- Use `list_sources` or `list_documents` when the user wants to inspect what is stored.
-
-## Refresh Knowledge
-
-- Use `refresh_source` when a source is stale or the user wants to re-index it from its original location.
-- Requires `source_id`; use `list_sources` first if the id is unknown.
-
-## Remove Wrong Knowledge
-
-- If the user says content is wrong, stale, or should be removed, use `forget_source`.
-- Prefer a natural target or label when possible, not only source ids.
-"""
+def run_upgrade() -> tuple[bool, str]:
+    command = upgrade_command()
+    proc = subprocess.run(command, capture_output=True, text=True)
+    if proc.returncode != 0:
+        return False, (proc.stderr or "").strip() or f"Upgrade failed: {' '.join(command)}"
+    return True, (proc.stdout or "").strip() or f"Upgraded via: {' '.join(command)}"
 
 
 def default_skill_dirs() -> dict[str, Path]:

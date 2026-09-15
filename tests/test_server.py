@@ -79,3 +79,14 @@ def test_handle_import_pdf_folder_returns_summary(tmp_path, sample_pdf, mock_emb
     result = handle_import_pdf_folder({"dir": str(folder)}, temp_config)
 
     assert "Imported 2 PDF source(s)" in result
+
+
+def test_tool_names_match_advertised_tools():
+    """TOOL_NAMES drives the installer allow-list; it must match reality."""
+    import asyncio
+
+    from agent_knowledge_server.server import list_tools
+    from agent_knowledge_server.tools import TOOL_NAMES
+
+    advertised = [tool.name for tool in asyncio.run(list_tools())]
+    assert sorted(advertised) == sorted(TOOL_NAMES)

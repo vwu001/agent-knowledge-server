@@ -36,6 +36,7 @@ default_tools_approval_mode = "approve"
 ```json
 [
   "mcp__agent-knowledge__add_source",
+  "mcp__agent-knowledge__sync_folder",
   "mcp__agent-knowledge__add_text_source",
   "mcp__agent-knowledge__add_text_source_from_context",
   "mcp__agent-knowledge__import_pdf_folder",
@@ -73,6 +74,47 @@ the useless shell. Instead:
 
 Use `force: true` only when you have inspected the content and know the short text is genuinely
 what you want.
+
+## Ingesting Org Documents (SharePoint / Confluence-backed folders)
+
+Many corporate tenants block bulk download of a SharePoint or Teams document library, so there is
+no folder on disk to hand to `sync_folder` or `import_pdf_folder`. Do not fight the download
+button. Walk the user through OneDrive sync instead:
+
+1. In the browser, open the SharePoint or Teams document library, then choose **Sync** (not
+   "Download"). This is usually permitted where download is not.
+2. Wait for OneDrive to finish. Then locate the local sync path:
+   - macOS: `~/Library/CloudStorage/OneDrive-<OrgName>/<Library>` (older clients: `~/OneDrive - <OrgName>/...`)
+   - Windows: `%USERPROFILE%\OneDrive - <OrgName>\<Library>`
+3. Confirm the files are real, not placeholders. Files-On-Demand leaves 0-byte stubs that extract
+   to nothing and get refused as empty. In Finder/Explorer choose **Always keep on this device**
+   for the folder, then check sizes are non-zero before indexing.
+4. Hand that local path to `sync_folder`. Use a `source_label` naming the library and, where the
+   docs are versioned, the release.
+
+When the library changes upstream, OneDrive updates the local copy — re-run `sync_folder` on the
+same path. It adds new files and re-indexes changed ones without disturbing the rest.
+
+If only a handful of documents matter, it is faster to skip sync entirely: have the user open each
+page and use `add_text_source` with `original_ref` set to the SharePoint URL.
+
+## Using Knowledge Alongside Code
+
+The point of this server is answering questions the repo alone cannot answer — vendor behaviour,
+config semantics, upgrade notes. In a development session:
+
+- **Search before proposing.** When a task touches a documented product or API, run
+  `search_knowledge` before reading code, then reconcile what the docs say with what the repo does.
+  The gap between them is usually the actual answer.
+- **Cite what you used.** Name the `source_label` and version in your answer so the user can judge
+  whether the doc applied to their environment.
+- **Trust the repo over the docs on local behaviour**, and say so when they disagree — a customised
+  implementation often diverges from the vendor default.
+- **Capture what the session established.** When the user confirms a non-obvious conclusion that
+  is not written down anywhere, offer `add_text_source_from_context` to save it with a clear
+  `source_label`. Offer; do not save silently.
+- **Retire what is wrong.** When a source is superseded, use `forget_source` rather than leaving
+  two versions to compete in search results.
 
 ## Search Knowledge
 
