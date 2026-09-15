@@ -98,10 +98,44 @@ def detect_targets(codex: bool, claude: bool) -> list[str]:
     return ["codex", "claude"]
 
 
+COMMAND_NAME = "agent-knowledge-server"
+
+
+def server_command() -> str:
+    """The command agents should launch to start the MCP server.
+
+    Prefers the bare name, which stays correct if the install later moves. But a
+    virtualenv install puts the console script in <venv>/bin, which is not on
+    PATH unless the venv is activated -- and agents launch the server with the
+    user's PATH, not an activated shell. In that case the bare name resolves to
+    nothing (or to a different install) and the MCP server silently fails to
+    connect, so write this install's absolute path instead.
+    """
+    local = Path(sys.executable).parent / COMMAND_NAME
+    on_path = shutil.which(COMMAND_NAME)
+    if local.exists():
+        if on_path and Path(on_path).resolve() == local.resolve():
+            return COMMAND_NAME
+        return str(local)
+    return on_path or COMMAND_NAME
+
+
+def command_path_warning() -> str | None:
+    """Explain the absolute-path fallback, or None when the bare name works."""
+    command = server_command()
+    if command == COMMAND_NAME:
+        return None
+    return (
+        f"Notice: {COMMAND_NAME} is not on your PATH, so the MCP config points at "
+        f"{command} instead. That works, but it breaks if the environment moves or is "
+        f"deleted. For a durable install use: uv tool install ."
+    )
+
+
 def _render_codex_server_block() -> str:
     return (
         f"{CODEX_SERVER_HEADER}\n"
-        'command = "agent-knowledge-server"\n'
+        f'command = "{server_command()}"\n'
         'args = ["serve"]\n'
         'default_tools_approval_mode = "approve"\n'
     )
@@ -159,10 +193,13 @@ def configure_claude_permissions(settings_path: Path) -> str:
 
 def register_claude_mcp() -> tuple[bool, str]:
     if shutil.which("claude") is None:
-        return False, "Claude CLI not found. Install it, then run: claude mcp add --scope user agent-knowledge -- agent-knowledge-server serve"
+        return False, (
+            "Claude CLI not found. Install it, then run: "
+            f"claude mcp add --scope user {SERVER_NAME} -- {server_command()} serve"
+        )
     try:
         proc = subprocess.run(
-            ["claude", "mcp", "add", "--scope", "user", "agent-knowledge", "--", "agent-knowledge-server", "serve"],
+            ["claude", "mcp", "add", "--scope", "user", SERVER_NAME, "--", server_command(), "serve"],
             check=False,
             capture_output=True,
             text=True,
@@ -208,6 +245,10 @@ def install_everything(
             messages.append(f"{prefix}: {message}")
         if "codex" in targets:
             messages.append(configure_codex_mcp(default_codex_config_path()))
+
+        warning = command_path_warning()
+        if warning:
+            messages.append(warning)
 
     messages.append("Start a new assistant session after installation.")
     return messages

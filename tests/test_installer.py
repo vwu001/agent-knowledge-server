@@ -155,3 +155,73 @@ def test_build_skill_text_documents_dev_workflow():
     skill_text = build_skill_text()
     assert "add_text_source_from_context" in skill_text
     assert "source_label" in skill_text
+
+
+# --- MCP command resolution -------------------------------------------------
+#
+# A venv install puts the console script in <venv>/bin, which is NOT on PATH
+# unless the venv is activated. Agents launch the MCP server with the user's
+# PATH, so a bare "agent-knowledge-server" silently fails to connect there.
+
+
+def _fake_script(tmp_path, name="agent-knowledge-server"):
+    bindir = tmp_path / "bin"
+    bindir.mkdir(parents=True, exist_ok=True)
+    script = bindir / name
+    script.write_text("#!/bin/sh\n", encoding="utf-8")
+    script.chmod(0o755)
+    return script
+
+
+def test_server_command_prefers_bare_name_when_path_already_resolves(tmp_path, monkeypatch):
+    from agent_knowledge_server import installer
+
+    script = _fake_script(tmp_path)
+    monkeypatch.setattr(installer.sys, "executable", str(script.parent / "python"))
+    monkeypatch.setattr(installer.shutil, "which", lambda name: str(script))
+
+    assert installer.server_command() == "agent-knowledge-server"
+
+
+def test_server_command_uses_absolute_path_for_unactivated_venv(tmp_path, monkeypatch):
+    from agent_knowledge_server import installer
+
+    script = _fake_script(tmp_path)
+    monkeypatch.setattr(installer.sys, "executable", str(script.parent / "python"))
+    # PATH resolves to some *other* install, or nothing at all
+    monkeypatch.setattr(installer.shutil, "which", lambda name: "/usr/local/bin/agent-knowledge-server")
+
+    assert installer.server_command() == str(script)
+
+
+def test_server_command_falls_back_to_bare_name_when_nothing_found(tmp_path, monkeypatch):
+    from agent_knowledge_server import installer
+
+    monkeypatch.setattr(installer.sys, "executable", str(tmp_path / "nowhere" / "python"))
+    monkeypatch.setattr(installer.shutil, "which", lambda name: None)
+
+    assert installer.server_command() == "agent-knowledge-server"
+
+
+def test_codex_block_uses_resolved_command(tmp_path, monkeypatch):
+    from agent_knowledge_server import installer
+
+    monkeypatch.setattr(installer, "server_command", lambda: "/opt/venv/bin/agent-knowledge-server")
+    configure_codex_mcp(tmp_path / "config.toml")
+
+    text = (tmp_path / "config.toml").read_text()
+    assert 'command = "/opt/venv/bin/agent-knowledge-server"' in text
+
+
+def test_install_warns_when_command_is_not_on_path(tmp_path, monkeypatch):
+    from agent_knowledge_server import installer
+
+    monkeypatch.setattr(installer, "detect_targets", lambda codex, claude: ["codex"])
+    monkeypatch.setattr(installer, "default_codex_config_path", lambda: tmp_path / "codex-config.toml")
+    monkeypatch.setattr(installer, "server_command", lambda: "/opt/venv/bin/agent-knowledge-server")
+
+    messages = install_everything(install_skill=False, install_mcp=True, codex=True, claude=False)
+
+    joined = "\n".join(messages)
+    assert "not on your PATH" in joined
+    assert "/opt/venv/bin/agent-knowledge-server" in joined

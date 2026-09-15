@@ -4,8 +4,8 @@ Curated agent knowledge server for coding agents. Add one file path or one URL a
 
 ## Install
 
-Two supported paths. Pick the one that matches your agent; they install the same
-skill and the same MCP server.
+Three supported paths. Pick the one that matches your situation; they install the
+same skill and the same MCP server.
 
 ### Path A — Claude Code plugin
 
@@ -61,6 +61,51 @@ default_tools_approval_mode = "approve"
 Claude uses `~/.claude/settings.json` for tool permissions. The installer adds every
 `mcp__agent-knowledge__...` tool to `permissions.allow`.
 
+### Path C — from a clone or a downloaded ZIP
+
+If you already have the source on disk, install from the directory instead of the
+git URL. Both cases are the same once you are inside the folder.
+
+Downloaded a ZIP? Unzip it and note that GitHub names the folder after the branch:
+
+```bash
+cd agent-knowledge-server-main
+```
+
+Then, for a clone or a ZIP alike:
+
+```bash
+uv tool install .
+```
+
+```bash
+agent-knowledge-server install
+```
+
+No git metadata is required — the version is static in `pyproject.toml`, so a ZIP
+with no `.git` directory builds exactly like a clone.
+
+To use the Claude plugin from a local checkout, point the marketplace at the
+directory rather than the GitHub slug:
+
+```bash
+/plugin marketplace add /full/path/to/agent-knowledge-server
+```
+
+**Contributors:** use `uv tool install -e .` so your edits take effect without
+reinstalling, while the command stays on your PATH.
+
+**Avoid a plain virtualenv.** `python -m venv .venv && pip install -e .` is the
+obvious move, and it half-works in a confusing way: the CLI runs fine in your
+activated shell, but your assistant launches the MCP server as a subprocess with
+your normal PATH, where `<venv>/bin` does not appear. The CLI looks healthy while
+MCP silently fails to connect. The installer now detects this and writes the venv's
+absolute path into the MCP config instead, printing a notice — but `uv tool install`
+avoids the problem outright.
+
+**After `git pull`,** re-run `uv tool install . --reinstall` to pick up the changes,
+unless you installed with `-e`.
+
 ## Verify It Worked
 
 **Restart your assistant session first.** MCP servers and skills are loaded at
@@ -87,6 +132,7 @@ agent-knowledge-server list-sources
 | `command not found` | The install directory is not on your PATH | `uv tool update-shell`, then open a new terminal |
 | `pip` refuses with "externally-managed-environment" | PEP 668 on a Homebrew/system Python | Use `uv tool install`, or a virtualenv |
 | MCP tools missing after install | Session not restarted | Start a new session |
+| CLI works but MCP will not connect | Installed into an unactivated virtualenv | Re-run `agent-knowledge-server install`, or reinstall with `uv tool install .` |
 | MCP listed but every call asks permission | `permissions.allow` not applied | Re-run `agent-knowledge-server install --mcp-only` |
 | First search is slow or times out | The embedding model downloads on first use | Run one `search` from the CLI to warm it |
 
