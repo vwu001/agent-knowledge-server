@@ -4,14 +4,52 @@ Curated agent knowledge server for coding agents. Add one file path or one URL a
 
 ## Install
 
+Two supported paths. Pick the one that matches your agent; they install the same
+skill and the same MCP server.
+
+### Path A — Claude Code plugin
+
+One step, and it registers the skill and the MCP server together. Nothing to edit
+by hand.
+
 ```bash
-pip install git+https://github.com/vwu001/agent-knowledge-server.git
+/plugin marketplace add vwu001/agent-knowledge-server
+```
+
+```bash
+/plugin install agent-knowledge-server
+```
+
+The plugin still needs the `agent-knowledge-server` command on your PATH, because
+that is what the MCP server runs. Install it with Path B's first command if you do
+not have it yet.
+
+### Path B — pip / uv (Codex, or manual Claude setup)
+
+```bash
+uv tool install git+https://github.com/vwu001/agent-knowledge-server.git
+```
+
+```bash
 agent-knowledge-server install
 ```
 
-`agent-knowledge-server install` installs the global assistant skill, writes the Codex MCP config, updates Claude MCP tool permissions, and attempts Claude MCP registration. Start a new assistant session after installation so the MCP tools and skill are available.
+`uv` is recommended over `pip` for one specific reason: Homebrew and system Pythons
+are marked externally managed (PEP 668) and will **refuse** a global `pip install`
+outright. `uv tool install` sidesteps that by giving the package its own isolated
+environment and putting just the command on your PATH. If you prefer pip, install
+into a virtualenv you control:
 
-Codex uses `~/.codex/config.toml` for MCP setup, not `settings.json`. The installer writes:
+```bash
+pip install git+https://github.com/vwu001/agent-knowledge-server.git
+```
+
+`agent-knowledge-server install` installs the global assistant skill, writes the
+Codex MCP config, updates Claude MCP tool permissions, and attempts Claude MCP
+registration.
+
+Codex uses `~/.codex/config.toml` for MCP setup, not `settings.json`. The installer
+writes:
 
 ```toml
 [mcp_servers.agent-knowledge]
@@ -20,7 +58,60 @@ args = ["serve"]
 default_tools_approval_mode = "approve"
 ```
 
-Claude uses `~/.claude/settings.json` for tool permissions. The installer updates `permissions.allow` with the `mcp__agent-knowledge__...` tools written in the generated skill.
+Claude uses `~/.claude/settings.json` for tool permissions. The installer adds every
+`mcp__agent-knowledge__...` tool to `permissions.allow`.
+
+## Verify It Worked
+
+**Restart your assistant session first.** MCP servers and skills are loaded at
+session start, so a fresh install is invisible to the session that ran it. This is
+the single most common reason people think the install failed.
+
+Then check all three layers:
+
+```bash
+agent-knowledge-server list-sources
+```
+
+1. **Command** — the above runs and prints `Sources: 0` rather than "command not found".
+2. **MCP** — run `/mcp` in Claude Code and confirm `agent-knowledge` is listed and
+   connected. In Codex, confirm the `[mcp_servers.agent-knowledge]` block is in
+   `~/.codex/config.toml`.
+3. **Skill** — ask your assistant "search my agent knowledge for anything". It should
+   reach for the `search_knowledge` tool without being told the tool name.
+
+### If something is missing
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `command not found` | The install directory is not on your PATH | `uv tool update-shell`, then open a new terminal |
+| `pip` refuses with "externally-managed-environment" | PEP 668 on a Homebrew/system Python | Use `uv tool install`, or a virtualenv |
+| MCP tools missing after install | Session not restarted | Start a new session |
+| MCP listed but every call asks permission | `permissions.allow` not applied | Re-run `agent-knowledge-server install --mcp-only` |
+| First search is slow or times out | The embedding model downloads on first use | Run one `search` from the CLI to warm it |
+
+## Using It In A Dev Session
+
+The value is in answering what the repo alone cannot — vendor behaviour, config
+semantics, upgrade notes. Load the docs once:
+
+```bash
+agent-knowledge-server sync ~/docs/product-guides --pattern "*.pdf"
+```
+
+Then in an assistant session, ask questions that span both:
+
+> "Our `ProductEditionPlugin` override returns the wrong edition for backdated
+> changes. What does the product docs say the default resolution order is, and where
+> does our implementation diverge?"
+
+The assistant searches the indexed docs, reads the repo, and reports the gap between
+them. Search results carry the `source_label` and detected version, so you can tell
+whether the doc actually applied to your release.
+
+If the corporate tenant blocks downloading a SharePoint library, sync it to OneDrive
+and point `sync_folder` at the local sync path — the bundled skill walks your
+assistant through this.
 
 ## Core Actions
 

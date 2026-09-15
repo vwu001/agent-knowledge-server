@@ -100,3 +100,46 @@ def test_import_pdfs_command(tmp_path, sample_pdf, mock_embedder, temp_config, m
 
     assert result.exit_code == 0
     assert "Imported 2 PDF source(s)" in result.output
+
+
+def test_upgrade_uses_uv_when_installed_as_uv_tool(monkeypatch):
+    from agent_knowledge_server import installer
+
+    monkeypatch.setattr(installer, "is_uv_tool_install", lambda: True)
+    monkeypatch.setattr(installer, "install_everything", lambda **kwargs: ["skills updated"])
+
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        import subprocess
+
+        return subprocess.CompletedProcess(cmd, 0, "ok", "")
+
+    monkeypatch.setattr(installer.subprocess, "run", fake_run)
+    result = runner.invoke(app, ["upgrade"])
+
+    assert result.exit_code == 0, result.output
+    assert calls[0][:3] == ["uv", "tool", "upgrade"]
+
+
+def test_upgrade_uses_pip_with_git_url_otherwise(monkeypatch):
+    from agent_knowledge_server import installer
+
+    monkeypatch.setattr(installer, "is_uv_tool_install", lambda: False)
+    monkeypatch.setattr(installer, "install_everything", lambda **kwargs: ["skills updated"])
+
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        import subprocess
+
+        return subprocess.CompletedProcess(cmd, 0, "ok", "")
+
+    monkeypatch.setattr(installer.subprocess, "run", fake_run)
+    result = runner.invoke(app, ["upgrade"])
+
+    assert result.exit_code == 0, result.output
+    assert "pip" in calls[0]
+    assert any(str(part).startswith("git+") for part in calls[0])

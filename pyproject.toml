@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agent-knowledge-server"
-version = "2.0.0"
+version = "2.1.0"
 description = "Curated agent knowledge server for coding agents"
 requires-python = ">=3.11"
 dependencies = [
@@ -27,6 +27,10 @@ agent-knowledge-server = "agent_knowledge_server.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agent_knowledge_server"]
+
+# Ship SKILL.md inside the wheel so `install` has one source of truth for it.
+[tool.hatch.build.targets.wheel.force-include]
+"skills" = "agent_knowledge_server/_skills"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

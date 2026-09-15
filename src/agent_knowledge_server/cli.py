@@ -171,22 +171,17 @@ def upgrade(
     codex: bool = typer.Option(False, "--codex", help="Target Codex only"),
     claude: bool = typer.Option(False, "--claude", help="Target Claude only"),
 ):
-    import subprocess
-    import sys
+    from agent_knowledge_server import installer
 
     typer.echo("Upgrading agent-knowledge-server...")
-    proc = subprocess.run(
-        [sys.executable, "-m", "pip", "install", "--upgrade", "-q", "agent-knowledge-server"],
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode != 0:
-        typer.echo(proc.stderr.strip() or "pip upgrade failed.", err=True)
+    ok, message = installer.run_upgrade()
+    if not ok:
+        typer.echo(message, err=True)
         raise typer.Exit(1)
-    typer.echo(proc.stdout.strip())
+    typer.echo(message)
 
     typer.echo("Updating skills...")
-    messages = install_everything(
+    messages = installer.install_everything(
         install_skill=True,
         install_mcp=False,
         codex=codex,

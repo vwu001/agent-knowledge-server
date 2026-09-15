@@ -117,3 +117,41 @@ def test_install_everything_configures_targets(tmp_path, monkeypatch):
     assert any("Codex MCP:" in message for message in messages)
     assert any("Claude permissions:" in message for message in messages)
     assert any("Claude MCP: registered" in message for message in messages)
+
+
+def test_sync_folder_is_pre_approved():
+    """sync_folder is the tool org users need for OneDrive-synced doc folders.
+
+    Omitting it means every sync prompts for approval.
+    """
+    from agent_knowledge_server.installer import CLAUDE_ALLOWED_TOOLS
+
+    assert "mcp__agent-knowledge__sync_folder" in CLAUDE_ALLOWED_TOOLS
+
+
+def test_allowed_tools_cover_every_mcp_tool():
+    from agent_knowledge_server.installer import CLAUDE_ALLOWED_TOOLS
+    from agent_knowledge_server.tools import TOOL_NAMES
+
+    exported = {f"mcp__agent-knowledge__{name}" for name in TOOL_NAMES}
+    assert exported == set(CLAUDE_ALLOWED_TOOLS)
+
+
+def test_build_skill_text_matches_packaged_skill_file():
+    """Guards against the skill text drifting from the canonical SKILL.md."""
+    from agent_knowledge_server.installer import bundled_skill_path
+
+    assert build_skill_text() == bundled_skill_path().read_text(encoding="utf-8")
+
+
+def test_build_skill_text_documents_org_doc_ingestion():
+    skill_text = build_skill_text()
+    assert "sync_folder" in skill_text
+    assert "OneDrive" in skill_text
+    assert "CloudStorage" in skill_text
+
+
+def test_build_skill_text_documents_dev_workflow():
+    skill_text = build_skill_text()
+    assert "add_text_source_from_context" in skill_text
+    assert "source_label" in skill_text
